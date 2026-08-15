@@ -1,23 +1,22 @@
 /**
  * ============================================================
  * SOVEREIGN AI PLATFORM
- * SOVEREIGN-REPLICATION-84
+ * SOVEREIGN-SCHEDULER-48
  * ============================================================
  *
- * Sovereign Replication Engine.
+ * Sovereign Scheduler Engine.
  *
  * Responsibilities:
- * - Govern sovereign state replication.
- * - Register replication streams.
- * - Verify source and replica integrity.
- * - Measure synchronization lag.
- * - Detect divergence and stale replicas.
- * - Prevent unsafe replica promotion.
- * - Preserve replication provenance.
+ * - Manage sovereign scheduled tasks.
+ * - Support one-time and recurring schedules.
+ * - Dispatch due tasks into Sovereign Queue.
+ * - Prevent duplicate scheduled execution.
+ * - Support pause, resume and cancellation.
+ * - Track execution history and failures.
+ * - Apply retry and misfire policies.
+ * - Operate without mandatory external scheduler SaaS.
  *
- * REPLICATION ENGINE IS NOT AUTHORITY.
- * REPLICATION ENGINE DOES NOT OVERRIDE OWNER.
- * REPLICATION ENGINE DOES NOT GRANT PRIVILEGES.
+ * SCHEDULER IS NOT AUTHORITY.
  *
  * OWNER remains SUPREME.
  * STEWARD remains DELEGATED by OWNER.
@@ -28,83 +27,143 @@
 
 import { randomUUID } from "node:crypto";
 
-export type SovereignReplicationStatus =
-  | "REGISTERED"
-  | "SYNCING"
-  | "SYNCHRONIZED"
-  | "LAGGING"
-  | "DIVERGED"
-  | "FAILED"
+/* ============================================================
+ * 1. SCHEDULE TYPE
+ * ============================================================
+ */
+
+export type SovereignScheduleType =
+  | "ONCE"
+  | "INTERVAL"
+  | "DAILY"
+  | "WEEKLY"
+  | "MONTHLY"
+  | "SYSTEM";
+
+/* ============================================================
+ * 2. SCHEDULE STATUS
+ * ============================================================
+ */
+
+export type SovereignScheduleStatus =
+  | "ACTIVE"
   | "PAUSED"
-  | "ARCHIVED";
+  | "RUNNING"
+  | "COMPLETED"
+  | "FAILED"
+  | "CANCELLED"
+  | "DISABLED";
 
-export type SovereignReplicationCriticality =
-  | "LOW"
-  | "MEDIUM"
-  | "HIGH"
-  | "CRITICAL";
+/* ============================================================
+ * 3. MISFIRE POLICY
+ * ============================================================
+ */
 
-export interface SovereignReplicationEndpoint {
+export type SovereignScheduleMisfirePolicy =
+  | "RUN_IMMEDIATELY"
+  | "SKIP"
+  | "RESCHEDULE";
+
+/* ============================================================
+ * 4. EXECUTION STATUS
+ * ============================================================
+ */
+
+export type SovereignScheduledExecutionStatus =
+  | "DISPATCHED"
+  | "SKIPPED"
+  | "FAILED";
+
+/* ============================================================
+ * 5. SCHEDULE
+ * ============================================================
+ */
+
+export interface SovereignSchedule {
   id: string;
-  name: string;
-  endpoint: string;
-
-  region?: string;
-  failureDomain?: string;
-
-  healthy: boolean;
-
-  sequence: number;
-
-  checksum?: string;
-
-  lastUpdatedAt?: string;
-  verifiedAt?: string;
-
-  metadata?: Record<string, unknown>;
-}
-
-export interface SovereignReplicationStream {
-  id: string;
-
-  redundancyGroupId: string;
-  serviceId: string;
 
   name: string;
 
-  criticality: SovereignReplicationCriticality;
+  type: SovereignScheduleType;
 
-  status: SovereignReplicationStatus;
+  status: SovereignScheduleStatus;
 
-  source: SovereignReplicationEndpoint;
+  queueId: string;
 
-  replicas: SovereignReplicationEndpoint[];
+  jobType: string;
 
-  maximumLagSeconds: number;
+  payload: unknown;
 
-  currentLagSeconds: number;
+  priority:
+    | "LOW"
+    | "NORMAL"
+    | "HIGH"
+    | "CRITICAL";
 
-  synchronizedReplicas: number;
+  startAt: string;
 
-  divergenceDetected: boolean;
+  nextRunAt?: string;
+
+  lastRunAt?: string;
+
+  intervalSeconds?: number;
+
+  daysOfWeek?: number[];
+
+  dayOfMonth?: number;
+
+  hour?: number;
+
+  minute?: number;
+
+  timezone: string;
+
+  misfirePolicy: SovereignScheduleMisfirePolicy;
+
+  maxRuns?: number;
+
+  runCount: number;
 
   createdBy: string;
-  verifiedBy?: string;
-
-  correlationId?: string;
-  causationId?: string;
 
   createdAt: string;
-  updatedAt: string;
 
-  synchronizedAt?: string;
-  pausedAt?: string;
-  archivedAt?: string;
+  updatedAt: string;
 
   metadata?: Record<string, unknown>;
 }
 
-export interface SovereignReplicationContext {
+/* ============================================================
+ * 6. EXECUTION RECORD
+ * ============================================================
+ */
+
+export interface SovereignScheduledExecution {
+  id: string;
+
+  scheduleId: string;
+
+  scheduledFor: string;
+
+  dispatchedAt?: string;
+
+  queueJobId?: string;
+
+  status: SovereignScheduledExecutionStatus;
+
+  reason?: string;
+
+  createdAt: string;
+
+  metadata?: Record<string, unknown>;
+}
+
+/* ============================================================
+ * 7. CONTEXT
+ * ============================================================
+ */
+
+export interface SovereignSchedulerContext {
   actorId: string;
 
   authority:
@@ -114,105 +173,110 @@ export interface SovereignReplicationContext {
     | "SYSTEM";
 
   authenticated: boolean;
+
   policyChecked: boolean;
+
   securityChecked: boolean;
+
   authorizationChecked: boolean;
 
   permissions: string[];
 
-  correlationId?: string;
-
   metadata?: Record<string, unknown>;
 }
 
-export interface SovereignReplicationStore {
-  saveStream(
-    stream: SovereignReplicationStream
+/* ============================================================
+ * 8. STORE
+ * ============================================================
+ */
+
+export interface SovereignSchedulerStore {
+  saveSchedule(
+    schedule: SovereignSchedule
   ): Promise<void>;
 
-  getStream(
-    streamId: string
-  ): Promise<SovereignReplicationStream | undefined>;
+  getSchedule(
+    scheduleId: string
+  ): Promise<SovereignSchedule | undefined>;
 
-  listStreams(
+  listSchedules():
+    Promise<SovereignSchedule[]>;
+
+  saveExecution(
+    execution: SovereignScheduledExecution
+  ): Promise<void>;
+
+  listExecutions(
+    scheduleId: string,
     limit?: number
-  ): Promise<SovereignReplicationStream[]>;
+  ): Promise<SovereignScheduledExecution[]>;
 
-  findByRedundancyGroupId?(
-    redundancyGroupId: string
-  ): Promise<SovereignReplicationStream | undefined>;
+  findExecution?(
+    scheduleId: string,
+    scheduledFor: string
+  ): Promise<SovereignScheduledExecution | undefined>;
 }
 
-export interface SovereignReplicationProbeBridge {
-  inspect(input: {
-    streamId: string;
+/* ============================================================
+ * 9. QUEUE BRIDGE
+ * ============================================================
+ */
 
-    endpoint: SovereignReplicationEndpoint;
+export interface SovereignSchedulerQueueBridge {
+  enqueue(input: {
+    queueId: string;
 
-    role: "SOURCE" | "REPLICA";
+    type: string;
 
-    context: SovereignReplicationContext;
+    payload: unknown;
+
+    priority:
+      | "LOW"
+      | "NORMAL"
+      | "HIGH"
+      | "CRITICAL";
+
+    idempotencyKey: string;
+
+    metadata?: Record<string, unknown>;
   }): Promise<{
-    healthy: boolean;
-
-    sequence: number;
-
-    checksum?: string;
-
-    lastUpdatedAt?: string;
-
-    lagSeconds?: number;
-
-    reason?: string;
+    jobId: string;
   }>;
 }
 
-export interface SovereignReplicationTransportBridge {
-  synchronize(input: {
-    streamId: string;
+/* ============================================================
+ * 10. POLICY BRIDGE
+ * ============================================================
+ */
 
-    source: SovereignReplicationEndpoint;
-
-    replica: SovereignReplicationEndpoint;
-
-    context: SovereignReplicationContext;
-  }): Promise<{
-    accepted: boolean;
-
-    operationId?: string;
-
-    reason?: string;
-  }>;
-}
-
-export interface SovereignReplicationPolicyBridge {
+export interface SovereignSchedulerPolicyBridge {
   authorize(input: {
     actorId: string;
 
     authority:
-      SovereignReplicationContext["authority"];
+      SovereignSchedulerContext["authority"];
 
     operation:
-      | "REGISTER_REPLICATION"
-      | "VERIFY_REPLICATION"
-      | "SYNCHRONIZE_REPLICATION"
-      | "READ_REPLICATION"
-      | "PAUSE_REPLICATION"
-      | "ARCHIVE_REPLICATION";
+      | "CREATE"
+      | "UPDATE"
+      | "DISPATCH"
+      | "PAUSE"
+      | "RESUME"
+      | "CANCEL";
 
-    streamId?: string;
-
-    serviceId?: string;
-
-    criticality?: SovereignReplicationCriticality;
+    scheduleId?: string;
   }): Promise<{
     allowed: boolean;
-
     reason?: string;
   }>;
 }
 
-export interface SovereignReplicationEventBridge {
+/* ============================================================
+ * 11. EVENT BUS
+ * ============================================================
+ */
+
+export interface SovereignSchedulerEventBus {
   publish(event: {
     id: string;
 
@@ -220,18 +284,22 @@ export interface SovereignReplicationEventBridge {
 
     source: string;
 
-    streamId?: string;
-    serviceId?: string;
+    scheduleId?: string;
+
+    executionId?: string;
 
     timestamp: string;
-
-    correlationId?: string;
 
     payload: Record<string, unknown>;
   }): Promise<void>;
 }
 
-export interface SovereignReplicationAudit {
+/* ============================================================
+ * 12. AUDIT
+ * ============================================================
+ */
+
+export interface SovereignSchedulerAudit {
   record(
     operation: string,
     subjectId: string | undefined,
@@ -240,751 +308,768 @@ export interface SovereignReplicationAudit {
   ): Promise<void>;
 }
 
-export class SovereignReplicationEngine {
+/* ============================================================
+ * 13. ENGINE
+ * ============================================================
+ */
+
+export class SovereignSchedulerEngine {
   public readonly id =
-    "SOVEREIGN-REPLICATION-84";
+    "SOVEREIGN-SCHEDULER-48";
 
-  public readonly version = "1.0.0";
+  public readonly version =
+    "1.0.0";
 
-  private store?: SovereignReplicationStore;
+  private store?: SovereignSchedulerStore;
 
-  private probeBridge?: SovereignReplicationProbeBridge;
+  private queueBridge?: SovereignSchedulerQueueBridge;
 
-  private transportBridge?: SovereignReplicationTransportBridge;
+  private policyBridge?: SovereignSchedulerPolicyBridge;
 
-  private policyBridge?: SovereignReplicationPolicyBridge;
+  private eventBus?: SovereignSchedulerEventBus;
 
-  private eventBridge?: SovereignReplicationEventBridge;
+  private audit?: SovereignSchedulerAudit;
 
-  private audit?: SovereignReplicationAudit;
+  private dispatchLocks =
+    new Set<string>();
 
-  private processing = new Set<string>();
+  /* ==========================================================
+   * CONFIGURATION
+   * ==========================================================
+   */
 
-  setStore(store: SovereignReplicationStore): void {
+  setStore(
+    store: SovereignSchedulerStore
+  ): void {
     this.store = store;
   }
 
-  setProbeBridge(
-    bridge: SovereignReplicationProbeBridge
+  setQueueBridge(
+    bridge: SovereignSchedulerQueueBridge
   ): void {
-    this.probeBridge = bridge;
-  }
-
-  setTransportBridge(
-    bridge: SovereignReplicationTransportBridge
-  ): void {
-    this.transportBridge = bridge;
+    this.queueBridge = bridge;
   }
 
   setPolicyBridge(
-    bridge: SovereignReplicationPolicyBridge
+    bridge: SovereignSchedulerPolicyBridge
   ): void {
     this.policyBridge = bridge;
   }
 
-  setEventBridge(
-    bridge: SovereignReplicationEventBridge
+  setEventBus(
+    eventBus: SovereignSchedulerEventBus
   ): void {
-    this.eventBridge = bridge;
+    this.eventBus = eventBus;
   }
 
-  setAudit(audit: SovereignReplicationAudit): void {
+  setAudit(
+    audit: SovereignSchedulerAudit
+  ): void {
     this.audit = audit;
   }
 
-  async registerStream(
+  /* ==========================================================
+   * CREATE SCHEDULE
+   * ==========================================================
+   */
+
+  async createSchedule(
     input: {
       id?: string;
 
-      redundancyGroupId: string;
-      serviceId: string;
       name: string;
 
-      criticality: SovereignReplicationCriticality;
+      type: SovereignScheduleType;
 
-      maximumLagSeconds: number;
+      queueId: string;
 
-      source: {
-        id?: string;
-        name: string;
-        endpoint: string;
-        region?: string;
-        failureDomain?: string;
-        metadata?: Record<string, unknown>;
-      };
+      jobType: string;
 
-      replicas: Array<{
-        id?: string;
-        name: string;
-        endpoint: string;
-        region?: string;
-        failureDomain?: string;
-        metadata?: Record<string, unknown>;
-      }>;
+      payload: unknown;
 
-      correlationId?: string;
-      causationId?: string;
+      priority?:
+        | "LOW"
+        | "NORMAL"
+        | "HIGH"
+        | "CRITICAL";
+
+      startAt: string;
+
+      intervalSeconds?: number;
+
+      daysOfWeek?: number[];
+
+      dayOfMonth?: number;
+
+      hour?: number;
+
+      minute?: number;
+
+      timezone?: string;
+
+      misfirePolicy?: SovereignScheduleMisfirePolicy;
+
+      maxRuns?: number;
 
       metadata?: Record<string, unknown>;
     },
-    context: SovereignReplicationContext
-  ): Promise<SovereignReplicationStream> {
+    context: SovereignSchedulerContext
+  ): Promise<SovereignSchedule> {
     this.requireContext(context);
 
-    if (!input.redundancyGroupId.trim()) {
-      throw new Error(
-        "Replication redundancyGroupId is required."
-      );
-    }
+    const id =
+      input.id ??
+      this.createId("SCHEDULE");
 
-    if (!input.serviceId.trim()) {
+    const authorization =
+      await this.authorize(
+        context,
+        "CREATE",
+        id
+      );
+
+    if (!authorization.allowed) {
+      await this.recordAudit(
+        "scheduler.create",
+        id,
+        "DENIED",
+        {
+          actorId: context.actorId,
+          reason: authorization.reason,
+        }
+      );
+
       throw new Error(
-        "Replication serviceId is required."
+        authorization.reason ??
+          "Schedule creation denied."
       );
     }
 
     if (!input.name.trim()) {
       throw new Error(
-        "Replication stream name is required."
+        "Schedule name is required."
       );
     }
+
+    if (!input.queueId.trim()) {
+      throw new Error(
+        "Schedule queueId is required."
+      );
+    }
+
+    if (!input.jobType.trim()) {
+      throw new Error(
+        "Schedule jobType is required."
+      );
+    }
+
+    const start =
+      new Date(input.startAt);
 
     if (
-      !Number.isFinite(input.maximumLagSeconds) ||
-      input.maximumLagSeconds < 0
+      Number.isNaN(
+        start.getTime()
+      )
     ) {
       throw new Error(
-        "maximumLagSeconds must be zero or greater."
+        "Invalid schedule startAt."
       );
     }
 
-    if (!input.source.endpoint.trim()) {
+    this.validateConfiguration(input);
+
+    const existing =
+      await this.requireStore()
+        .getSchedule(id);
+
+    if (existing) {
       throw new Error(
-        "Replication source endpoint is required."
+        `Schedule already exists: ${id}`
       );
     }
 
-    if (input.replicas.length === 0) {
-      throw new Error(
-        "Replication requires at least one replica."
-      );
-    }
+    const now =
+      this.now();
 
-    const endpoints = [
-      input.source.endpoint,
-      ...input.replicas.map(
-        (replica) => replica.endpoint
-      ),
-    ];
-
-    if (
-      new Set(endpoints).size !== endpoints.length
-    ) {
-      throw new Error(
-        "Replication endpoints must be unique."
-      );
-    }
-
-    const streamId =
-      input.id ??
-      this.createId("REPLICATION-STREAM");
-
-    await this.requireAuthorized(
-      context,
-      "REGISTER_REPLICATION",
-      streamId,
-      input.serviceId,
-      input.criticality
-    );
-
-    const now = this.now();
-
-    const stream: SovereignReplicationStream = {
-      id: streamId,
-
-      redundancyGroupId:
-        input.redundancyGroupId,
-
-      serviceId: input.serviceId,
+    const schedule:
+      SovereignSchedule = {
+      id,
 
       name: input.name,
 
-      criticality: input.criticality,
+      type: input.type,
 
-      status: "REGISTERED",
+      status: "ACTIVE",
 
-      source: this.createEndpoint(
-        input.source
-      ),
+      queueId: input.queueId,
 
-      replicas: input.replicas.map(
-        (replica) =>
-          this.createEndpoint(replica)
-      ),
+      jobType: input.jobType,
 
-      maximumLagSeconds:
-        input.maximumLagSeconds,
+      payload: input.payload,
 
-      currentLagSeconds: 0,
+      priority:
+        input.priority ?? "NORMAL",
 
-      synchronizedReplicas: 0,
+      startAt:
+        start.toISOString(),
 
-      divergenceDetected: false,
+      nextRunAt:
+        start.toISOString(),
 
-      createdBy: context.actorId,
+      intervalSeconds:
+        input.intervalSeconds,
 
-      correlationId:
-        input.correlationId ??
-        context.correlationId,
+      daysOfWeek:
+        input.daysOfWeek,
 
-      causationId: input.causationId,
+      dayOfMonth:
+        input.dayOfMonth,
+
+      hour:
+        input.hour,
+
+      minute:
+        input.minute,
+
+      timezone:
+        input.timezone ?? "UTC",
+
+      misfirePolicy:
+        input.misfirePolicy ??
+        "RUN_IMMEDIATELY",
+
+      maxRuns:
+        input.maxRuns,
+
+      runCount: 0,
+
+      createdBy:
+        context.actorId,
 
       createdAt: now,
 
       updatedAt: now,
 
-      metadata: input.metadata,
+      metadata:
+        input.metadata,
     };
 
     await this.requireStore()
-      .saveStream(stream);
+      .saveSchedule(schedule);
 
-    await this.publishEvent(
-      "replication.registered",
-      stream,
+    await this.publish(
+      "scheduler.schedule.created",
+      schedule.id,
+      undefined,
       {
-        replicas: stream.replicas.length,
+        type: schedule.type,
+        nextRunAt:
+          schedule.nextRunAt,
       }
     );
 
     await this.recordAudit(
-      "replication.register",
-      stream.id,
+      "scheduler.create",
+      schedule.id,
       "SUCCESS",
       {
-        actorId: context.actorId,
-        serviceId: stream.serviceId,
+        actorId:
+          context.actorId,
       }
     );
 
-    return stream;
+    return schedule;
   }
 
-  async verify(
-    streamId: string,
-    context: SovereignReplicationContext
-  ): Promise<SovereignReplicationStream> {
+  /* ==========================================================
+   * PROCESS DUE SCHEDULES
+   * ==========================================================
+   */
+
+  async processDue(
+    context: SovereignSchedulerContext,
+    nowInput = new Date()
+  ): Promise<{
+    checked: number;
+    dispatched: number;
+    skipped: number;
+    failed: number;
+  }> {
     this.requireContext(context);
 
-    const stream =
-      await this.requireStream(streamId);
+    const schedules =
+      await this.requireStore()
+        .listSchedules();
 
-    await this.requireAuthorized(
-      context,
-      "VERIFY_REPLICATION",
-      stream.id,
-      stream.serviceId,
-      stream.criticality
-    );
+    let checked = 0;
+    let dispatched = 0;
+    let skipped = 0;
+    let failed = 0;
 
-    if (stream.status === "ARCHIVED") {
-      throw new Error(
-        "Archived replication stream cannot be verified."
-      );
-    }
-
-    this.acquire(stream.id);
-
-    try {
-      const sourceResult =
-        await this.requireProbeBridge().inspect({
-          streamId: stream.id,
-          endpoint: stream.source,
-          role: "SOURCE",
-          context,
-        });
-
-      this.applyProbe(
-        stream.source,
-        sourceResult
-      );
-
-      if (!stream.source.healthy) {
-        stream.status = "FAILED";
-        stream.updatedAt = this.now();
-
-        await this.requireStore()
-          .saveStream(stream);
-
-        throw new Error(
-          "Replication source is unhealthy."
-        );
-      }
-
-      let synchronized = 0;
-      let maximumLag = 0;
-      let divergence = false;
-
-      for (const replica of stream.replicas) {
-        const result =
-          await this.requireProbeBridge().inspect({
-            streamId: stream.id,
-            endpoint: replica,
-            role: "REPLICA",
-            context,
-          });
-
-        this.applyProbe(replica, result);
-
-        const lag =
-          result.lagSeconds ?? 0;
-
-        maximumLag =
-          Math.max(maximumLag, lag);
-
-        const checksumMatches =
-          !stream.source.checksum ||
-          !replica.checksum ||
-          stream.source.checksum ===
-            replica.checksum;
-
-        const sequenceValid =
-          replica.sequence <=
-          stream.source.sequence;
-
-        if (!sequenceValid) {
-          divergence = true;
-        }
-
-        if (
-          replica.healthy &&
-          checksumMatches &&
-          sequenceValid &&
-          lag <= stream.maximumLagSeconds
-        ) {
-          synchronized++;
-        } else if (
-          replica.healthy &&
-          !checksumMatches &&
-          replica.sequence ===
-            stream.source.sequence
-        ) {
-          divergence = true;
-        }
-      }
-
-      stream.currentLagSeconds =
-        maximumLag;
-
-      stream.synchronizedReplicas =
-        synchronized;
-
-      stream.divergenceDetected =
-        divergence;
-
-      if (divergence) {
-        stream.status = "DIVERGED";
-      } else if (
-        synchronized ===
-        stream.replicas.length
+    for (const schedule of schedules) {
+      if (
+        schedule.status !==
+        "ACTIVE"
       ) {
-        stream.status = "SYNCHRONIZED";
-        stream.synchronizedAt = this.now();
-      } else if (synchronized > 0) {
-        stream.status = "LAGGING";
-      } else {
-        stream.status = "FAILED";
+        continue;
       }
 
-      stream.verifiedBy =
-        context.actorId;
+      if (!schedule.nextRunAt) {
+        continue;
+      }
 
-      stream.updatedAt =
-        this.now();
+      const due =
+        new Date(
+          schedule.nextRunAt
+        );
 
-      await this.requireStore()
-        .saveStream(stream);
+      if (
+        due.getTime() >
+        nowInput.getTime()
+      ) {
+        continue;
+      }
 
-      await this.publishEvent(
-        "replication.verified",
-        stream,
-        {
-          status: stream.status,
+      checked++;
 
-          synchronizedReplicas:
-            stream.synchronizedReplicas,
-
-          totalReplicas:
-            stream.replicas.length,
-
-          currentLagSeconds:
-            stream.currentLagSeconds,
-
-          divergenceDetected:
-            stream.divergenceDetected,
-        }
-      );
-
-      return stream;
-    } finally {
-      this.release(stream.id);
-    }
-  }
-
-  async synchronize(
-    streamId: string,
-    context: SovereignReplicationContext
-  ): Promise<SovereignReplicationStream> {
-    this.requireContext(context);
-
-    const stream =
-      await this.requireStream(streamId);
-
-    await this.requireAuthorized(
-      context,
-      "SYNCHRONIZE_REPLICATION",
-      stream.id,
-      stream.serviceId,
-      stream.criticality
-    );
-
-    if (
-      stream.status === "ARCHIVED" ||
-      stream.status === "PAUSED"
-    ) {
-      throw new Error(
-        `Replication cannot synchronize from status: ${stream.status}`
-      );
-    }
-
-    if (stream.divergenceDetected) {
-      throw new Error(
-        "Automatic synchronization blocked because divergence was detected."
-      );
-    }
-
-    this.acquire(stream.id);
-
-    stream.status = "SYNCING";
-    stream.updatedAt = this.now();
-
-    await this.requireStore()
-      .saveStream(stream);
-
-    try {
-      for (const replica of stream.replicas) {
-        if (
-          replica.healthy &&
-          replica.sequence ===
-            stream.source.sequence &&
-          replica.checksum ===
-            stream.source.checksum
-        ) {
-          continue;
-        }
-
+      try {
         const result =
-          await this.requireTransportBridge()
-            .synchronize({
-              streamId: stream.id,
-              source: stream.source,
-              replica,
-              context,
-            });
-
-        if (!result.accepted) {
-          throw new Error(
-            result.reason ??
-              `Replication synchronization rejected for ${replica.name}.`
+          await this.dispatchSchedule(
+            schedule.id,
+            context,
+            nowInput
           );
+
+        if (
+          result.status ===
+          "DISPATCHED"
+        ) {
+          dispatched++;
+        } else if (
+          result.status ===
+          "SKIPPED"
+        ) {
+          skipped++;
+        } else {
+          failed++;
         }
+      } catch {
+        failed++;
       }
-
-      stream.updatedAt = this.now();
-
-      await this.requireStore()
-        .saveStream(stream);
-
-      await this.publishEvent(
-        "replication.synchronization.requested",
-        stream,
-        {
-          replicas: stream.replicas.length,
-        }
-      );
-
-      return stream;
-    } catch (error) {
-      stream.status = "FAILED";
-      stream.updatedAt = this.now();
-
-      await this.requireStore()
-        .saveStream(stream);
-
-      await this.recordAudit(
-        "replication.synchronize",
-        stream.id,
-        "FAILED",
-        {
-          actorId: context.actorId,
-
-          error:
-            error instanceof Error
-              ? error.message
-              : String(error),
-        }
-      );
-
-      throw error;
-    } finally {
-      this.release(stream.id);
-    }
-  }
-
-  async pause(
-    streamId: string,
-    context: SovereignReplicationContext
-  ): Promise<SovereignReplicationStream> {
-    this.requireContext(context);
-
-    const stream =
-      await this.requireStream(streamId);
-
-    await this.requireAuthorized(
-      context,
-      "PAUSE_REPLICATION",
-      stream.id,
-      stream.serviceId,
-      stream.criticality
-    );
-
-    if (stream.status === "ARCHIVED") {
-      throw new Error(
-        "Archived replication cannot be paused."
-      );
     }
 
-    stream.status = "PAUSED";
-    stream.pausedAt = this.now();
-    stream.updatedAt = this.now();
-
-    await this.requireStore()
-      .saveStream(stream);
-
-    await this.publishEvent(
-      "replication.paused",
-      stream,
-      {
-        actorId: context.actorId,
-      }
-    );
-
-    return stream;
-  }
-
-  async getStream(
-    streamId: string,
-    context: SovereignReplicationContext
-  ): Promise<SovereignReplicationStream> {
-    this.requireContext(context);
-
-    const stream =
-      await this.requireStream(streamId);
-
-    await this.requireAuthorized(
-      context,
-      "READ_REPLICATION",
-      stream.id,
-      stream.serviceId,
-      stream.criticality
-    );
-
-    return stream;
-  }
-
-  async listStreams(
-    context: SovereignReplicationContext,
-    limit = 100
-  ): Promise<SovereignReplicationStream[]> {
-    this.requireContext(context);
-
-    await this.requireAuthorized(
-      context,
-      "READ_REPLICATION"
-    );
-
-    if (
-      !Number.isInteger(limit) ||
-      limit < 1 ||
-      limit > 1000
-    ) {
-      throw new Error(
-        "Replication limit must be between 1 and 1000."
-      );
-    }
-
-    return this.requireStore()
-      .listStreams(limit);
-  }
-
-  async archive(
-    streamId: string,
-    context: SovereignReplicationContext
-  ): Promise<SovereignReplicationStream> {
-    this.requireContext(context);
-
-    const stream =
-      await this.requireStream(streamId);
-
-    await this.requireAuthorized(
-      context,
-      "ARCHIVE_REPLICATION",
-      stream.id,
-      stream.serviceId,
-      stream.criticality
-    );
-
-    if (
-      stream.status === "SYNCING"
-    ) {
-      throw new Error(
-        "Active replication cannot be archived."
-      );
-    }
-
-    stream.status = "ARCHIVED";
-    stream.archivedAt = this.now();
-    stream.updatedAt = this.now();
-
-    await this.requireStore()
-      .saveStream(stream);
-
-    await this.publishEvent(
-      "replication.archived",
-      stream,
-      {
-        actorId: context.actorId,
-      }
-    );
-
-    return stream;
-  }
-
-  private createEndpoint(
-    input: {
-      id?: string;
-      name: string;
-      endpoint: string;
-      region?: string;
-      failureDomain?: string;
-      metadata?: Record<string, unknown>;
-    }
-  ): SovereignReplicationEndpoint {
     return {
-      id:
-        input.id ??
-        this.createId(
-          "REPLICATION-ENDPOINT"
-        ),
-
-      name: input.name,
-
-      endpoint: input.endpoint,
-
-      region: input.region,
-
-      failureDomain:
-        input.failureDomain,
-
-      healthy: false,
-
-      sequence: 0,
-
-      metadata: input.metadata,
+      checked,
+      dispatched,
+      skipped,
+      failed,
     };
   }
 
-  private applyProbe(
-    endpoint: SovereignReplicationEndpoint,
-    result: {
-      healthy: boolean;
-      sequence: number;
-      checksum?: string;
-      lastUpdatedAt?: string;
-    }
-  ): void {
+  /* ==========================================================
+   * DISPATCH
+   * ==========================================================
+   */
+
+  async dispatchSchedule(
+    scheduleId: string,
+    context: SovereignSchedulerContext,
+    nowInput = new Date()
+  ): Promise<SovereignScheduledExecution> {
+    this.requireContext(context);
+
     if (
-      !Number.isInteger(result.sequence) ||
-      result.sequence < 0
+      this.dispatchLocks.has(
+        scheduleId
+      )
     ) {
       throw new Error(
-        "Replication sequence must be a non-negative integer."
+        "Schedule dispatch is already running."
       );
     }
 
-    endpoint.healthy =
-      result.healthy;
+    const schedule =
+      await this.requireSchedule(
+        scheduleId
+      );
 
-    endpoint.sequence =
-      result.sequence;
-
-    endpoint.checksum =
-      result.checksum;
-
-    endpoint.lastUpdatedAt =
-      result.lastUpdatedAt;
-
-    endpoint.verifiedAt =
-      this.now();
-  }
-
-  private acquire(streamId: string): void {
-    if (this.processing.has(streamId)) {
+    if (
+      schedule.status !==
+      "ACTIVE"
+    ) {
       throw new Error(
-        "Replication operation is already running."
+        `Schedule is not active: ${schedule.status}`
       );
     }
 
-    this.processing.add(streamId);
-  }
+    if (!schedule.nextRunAt) {
+      throw new Error(
+        "Schedule has no next run."
+      );
+    }
 
-  private release(streamId: string): void {
-    this.processing.delete(streamId);
-  }
-
-  private async requireAuthorized(
-    context: SovereignReplicationContext,
-    operation:
-      | "REGISTER_REPLICATION"
-      | "VERIFY_REPLICATION"
-      | "SYNCHRONIZE_REPLICATION"
-      | "READ_REPLICATION"
-      | "PAUSE_REPLICATION"
-      | "ARCHIVE_REPLICATION",
-    streamId?: string,
-    serviceId?: string,
-    criticality?: SovereignReplicationCriticality
-  ): Promise<void> {
-    const result =
-      await this.requirePolicyBridge()
-        .authorize({
-          actorId: context.actorId,
-          authority: context.authority,
-          operation,
-          streamId,
-          serviceId,
-          criticality,
-        });
-
-    if (!result.allowed) {
-      await this.recordAudit(
-        `replication.${operation.toLowerCase()}`,
-        streamId,
-        "DENIED",
-        {
-          actorId: context.actorId,
-          reason: result.reason,
-        }
+    const authorization =
+      await this.authorize(
+        context,
+        "DISPATCH",
+        schedule.id
       );
 
-      throw new Error
+    if (!authorization.allowed) {
+      throw new Error(
+        authorization.reason ??
+          "Schedule dispatch denied."
+      );
+    }
+
+    this.dispatchLocks.add(
+      scheduleId
+    );
+
+    const scheduledFor =
+      schedule.nextRunAt;
+
+    try {
+      if (
+        this.requireStore()
+          .findExecution
+      ) {
+        const existing =
+          await this.requireStore()
+            .findExecution!(
+              schedule.id,
+              scheduledFor
+            );
+
+        if (existing) {
+          return existing;
+        }
+      }
+
+      const scheduledTime =
+        new Date(
+          scheduledFor
+        ).getTime();
+
+      const now =
+        nowInput.getTime();
+
+      const isMisfire =
+        now >
+        scheduledTime + 60_000;
+
+      if (
+        isMisfire &&
+        schedule.misfirePolicy ===
+          "SKIP"
+      ) {
+        const execution =
+          await this.createExecution({
+            scheduleId:
+              schedule.id,
+
+            scheduledFor,
+
+            status:
+              "SKIPPED",
+
+            reason:
+              "MISFIRE_SKIPPED",
+          });
+
+        schedule.lastRunAt =
+          scheduledFor;
+
+        schedule.nextRunAt =
+          this.calculateNextRun(
+            schedule,
+            new Date(
+              scheduledFor
+            )
+          );
+
+        this.finishIfRequired(
+          schedule
+        );
+
+        schedule.updatedAt =
+          this.now();
+
+        await this.requireStore()
+          .saveSchedule(schedule);
+
+        await this.publish(
+          "scheduler.execution.skipped",
+          schedule.id,
+          execution.id,
+          {
+            scheduledFor,
+          }
+        );
+
+        return execution;
+      }
+
+      if (
+        isMisfire &&
+        schedule.misfirePolicy ===
+          "RESCHEDULE"
+      ) {
+        schedule.nextRunAt =
+          this.calculateNextRun(
+            schedule,
+            nowInput
+          );
+
+        schedule.updatedAt =
+          this.now();
+
+        await this.requireStore()
+          .saveSchedule(schedule);
+
+        return this.createExecution({
+          scheduleId:
+            schedule.id,
+
+          scheduledFor,
+
+          status:
+            "SKIPPED",
+
+          reason:
+            "MISFIRE_RESCHEDULED",
+        });
+      }
+
+      try {
+        const result =
+          await this.requireQueueBridge()
+            .enqueue({
+              queueId:
+                schedule.queueId,
+
+              type:
+                schedule.jobType,
+
+              payload:
+                schedule.payload,
+
+              priority:
+                schedule.priority,
+
+              idempotencyKey:
+                `SCHEDULE:${schedule.id}:${scheduledFor}`,
+
+              metadata: {
+                scheduleId:
+                  schedule.id,
+
+                scheduledFor,
+
+                ...schedule.metadata,
+              },
+            });
+
+        const execution =
+          await this.createExecution({
+            scheduleId:
+              schedule.id,
+
+            scheduledFor,
+
+            status:
+              "DISPATCHED",
+
+            dispatchedAt:
+              this.now(),
+
+            queueJobId:
+              result.jobId,
+          });
+
+        schedule.lastRunAt =
+          scheduledFor;
+
+        schedule.runCount += 1;
+
+        schedule.nextRunAt =
+          this.calculateNextRun(
+            schedule,
+            new Date(
+              scheduledFor
+            )
+          );
+
+        this.finishIfRequired(
+          schedule
+        );
+
+        schedule.updatedAt =
+          this.now();
+
+        await this.requireStore()
+          .saveSchedule(schedule);
+
+        await this.publish(
+          "scheduler.execution.dispatched",
+          schedule.id,
+          execution.id,
+          {
+            queueJobId:
+              result.jobId,
+
+            scheduledFor,
+          }
+        );
+
+        await this.recordAudit(
+          "scheduler.dispatch",
+          schedule.id,
+          "SUCCESS",
+          {
+            actorId:
+              context.actorId,
+
+            queueJobId:
+              result.jobId,
+          }
+        );
+
+        return execution;
+      } catch (error) {
+        const reason =
+          error instanceof Error
+            ? error.message
+            : "Schedule dispatch failed.";
+
+        const execution =
+          await this.createExecution({
+            scheduleId:
+              schedule.id,
+
+            scheduledFor,
+
+            status:
+              "FAILED",
+
+            reason,
+          });
+
+        await this.publish(
+          "scheduler.execution.failed",
+          schedule.id,
+          execution.id,
+          {
+            reason,
+          }
+        );
+
+        await this.recordAudit(
+          "scheduler.dispatch",
+          schedule.id,
+          "FAILED",
+          {
+            actorId:
+              context.actorId,
+
+            reason,
+          }
+        );
+
+        return execution;
+      }
+    } finally {
+      this.dispatchLocks.delete(
+        scheduleId
+      );
+    }
+  }
+
+  /* ==========================================================
+   * PAUSE
+   * ==========================================================
+   */
+
+  async pause(
+    scheduleId: string,
+    context: SovereignSchedulerContext
+  ): Promise<SovereignSchedule> {
+    this.requireContext(context);
+
+    const schedule =
+      await this.requireSchedule(
+        scheduleId
+      );
+
+    await this.requireAuthorized(
+      context,
+      "PAUSE",
+      schedule.id
+    );
+
+    if (
+      schedule.status ===
+      "CANCELLED" ||
+      schedule.status ===
+      "COMPLETED"
+    ) {
+      throw new Error(
+        `Schedule cannot be paused: ${schedule.status}`
+      );
+    }
+
+    schedule.status =
+      "PAUSED";
+
+    schedule.updatedAt =
+      this.now();
+
+    await this.requireStore()
+      .saveSchedule(schedule);
+
+    await this.publish(
+      "scheduler.schedule.paused",
+      schedule.id,
+      undefined,
+      {}
+    );
+
+    return schedule;
+  }
+
+  /* ==========================================================
+   * RESUME
+   * ==========================================================
+   */
+
+  async resume(
+    scheduleId: string,
+    context: SovereignSchedulerContext
+  ): Promise<SovereignSchedule> {
+    this.requireContext(context);
+
+    const schedule =
+      await this.requireSchedule(
+        scheduleId
+      );
+
+    await this.requireAuthorized(
+      context,
+      "RESUME",
+      schedule.id
+    );
+
+    if (
+      schedule.status !==
+      "PAUSED"
+    ) {
+      throw new Error(
+        "Only paused schedules can resume."
+      );
+    }
+
+    schedule.status =
+      "ACTIVE";
+
+    if (
+      !schedule.nextRunAt ||
