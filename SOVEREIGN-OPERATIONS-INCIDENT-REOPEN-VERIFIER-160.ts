@@ -2,8 +2,8 @@
 // SOVEREIGN AI PLATFORM
 // File: SOVEREIGN-OPERATIONS-INCIDENT-REOPEN-VERIFIER-160.ts
 // Sequence: 160
-// Purpose: Sovereign Incident Reopen Verification, Recurrence Validation,
-//          Evidence Preservation & Independent Reopen Assurance
+// Layer: OPERATIONS
+// Purpose: Verify incident reopening before operational re-entry.
 // ============================================================================
 
 export const SOVEREIGN_OPERATIONS_INCIDENT_REOPEN_VERIFIER_ID =
@@ -12,89 +12,48 @@ export const SOVEREIGN_OPERATIONS_INCIDENT_REOPEN_VERIFIER_ID =
 export const SOVEREIGN_OPERATIONS_INCIDENT_REOPEN_VERIFIER_VERSION =
   "1.0.0";
 
-export type SovereignIncidentReopenVerificationState =
-  | "REGISTERED"
-  | "VERIFYING"
-  | "PASSED"
-  | "FAILED"
+export type IncidentReopenVerificationStatus =
+  | "PENDING"
+  | "VERIFIED"
   | "REJECTED"
   | "BLOCKED";
 
-export type SovereignIncidentReopenVerificationDecision =
-  | "VERIFY"
-  | "PASS"
-  | "FAIL"
-  | "REJECT"
-  | "BLOCK";
+export type IncidentReopenVerificationDecision =
+  | "ALLOW_REOPEN"
+  | "REJECT_REOPEN"
+  | "BLOCK_REOPEN";
 
-export interface SovereignIncidentReopenVerificationAuthorityContext {
+export interface IncidentReopenAuthority {
   ownerId: string;
   stewardId?: string;
 
   ownerAuthority: "SUPREME";
   stewardAuthority: "DELEGATED";
-
-  delegationEnabled: boolean;
-  delegationScope: string[];
 }
 
-export interface SovereignIncidentReopenVerificationEvidence {
-  originalIncidentExists: boolean;
-  originalClosureExists: boolean;
+export interface IncidentReopenEvidence {
+  incidentExists: boolean;
+  incidentWasClosed: boolean;
 
   recurrenceConfirmed: boolean;
-  recurrenceMonitorVerified: boolean;
-  recurrenceResponseVerified: boolean;
 
-  sameRootCauseConfirmed: boolean;
-  sameFailurePatternConfirmed: boolean;
+  recurrenceMonitorLinked: boolean;
+  recurrenceResponseLinked: boolean;
 
   originalEvidencePreserved: boolean;
-  previousAuditTrailPreserved: boolean;
+  auditTrailPreserved: boolean;
 
-  previousCorrectiveActionsPreserved: boolean;
-  previousPreventiveControlsPreserved: boolean;
+  correctiveActionsPreserved: boolean;
+  preventiveControlsPreserved: boolean;
 
-  securityContextPreserved: boolean;
-  integrityContextPreserved: boolean;
-
-  reopenReasonDocumented: boolean;
-  reopenTimestampRecorded: boolean;
+  securityValidated: boolean;
+  integrityValidated: boolean;
 
   duplicateReopenDetected: boolean;
   evidenceTamperingDetected: boolean;
-  auditGapDetected: boolean;
 }
 
-export interface SovereignIncidentReopenVerificationPolicy {
-  requireOriginalIncident: boolean;
-  requireOriginalClosure: boolean;
-
-  requireConfirmedRecurrence: boolean;
-  requireMonitorVerification: boolean;
-  requireResponseVerification: boolean;
-
-  requireRootCauseMatch: boolean;
-  requireFailurePatternMatch: boolean;
-
-  requireOriginalEvidencePreservation: boolean;
-  requireAuditPreservation: boolean;
-
-  requireCorrectiveActionPreservation: boolean;
-  requirePreventiveControlPreservation: boolean;
-
-  requireSecurityContext: boolean;
-  requireIntegrityContext: boolean;
-
-  requireReasonDocumentation: boolean;
-  requireTimestamp: boolean;
-
-  rejectDuplicateReopen: boolean;
-  rejectEvidenceTampering: boolean;
-  rejectAuditGap: boolean;
-}
-
-export interface SovereignIncidentReopenVerificationRequest {
+export interface IncidentReopenVerificationRequest {
   verificationId: string;
 
   reopenId: string;
@@ -105,21 +64,14 @@ export interface SovereignIncidentReopenVerificationRequest {
   reopenedBy: string;
   verifierId: string;
 
-  authorityContext:
-    SovereignIncidentReopenVerificationAuthorityContext;
+  authority: IncidentReopenAuthority;
 
-  evidence:
-    SovereignIncidentReopenVerificationEvidence;
-
-  policy:
-    SovereignIncidentReopenVerificationPolicy;
+  evidence: IncidentReopenEvidence;
 
   createdAt: number;
-
-  metadata?: Record<string, unknown>;
 }
 
-export interface SovereignIncidentReopenVerificationRecord {
+export interface IncidentReopenVerificationResult {
   verificationId: string;
 
   reopenId: string;
@@ -127,39 +79,10 @@ export interface SovereignIncidentReopenVerificationRecord {
 
   target: string;
 
-  reopenedBy: string;
-  verifierId: string;
+  status: IncidentReopenVerificationStatus;
+  decision: IncidentReopenVerificationDecision;
 
-  state:
-    SovereignIncidentReopenVerificationState;
-
-  decision:
-    SovereignIncidentReopenVerificationDecision;
-
-  createdAt: number;
-  evaluatedAt: number;
-  completedAt?: number;
-
-  reasons: string[];
-
-  authority: "NONE";
-}
-
-export interface SovereignIncidentReopenVerificationResult {
-  verificationId: string;
-
-  reopenId: string;
-  incidentId: string;
-
-  target: string;
-
-  accepted: boolean;
-
-  state:
-    SovereignIncidentReopenVerificationState;
-
-  decision:
-    SovereignIncidentReopenVerificationDecision;
+  verified: boolean;
 
   reasons: string[];
 
@@ -177,652 +100,396 @@ export class SovereignOperationsIncidentReopenVerifier {
 
   public readonly authority: "NONE" = "NONE";
 
-  public readonly ownerAuthority: "SUPREME" =
-    "SUPREME";
+  public readonly ownerAuthority = "SUPREME" as const;
+  public readonly stewardAuthority = "DELEGATED" as const;
 
-  public readonly stewardAuthority: "DELEGATED" =
-    "DELEGATED";
+  // --------------------------------------------------------------------------
+  // Sovereignty invariants
+  // --------------------------------------------------------------------------
 
-  public readonly verifierCanCreateAuthority = false;
-  public readonly verifierCanEscalateAuthority = false;
-  public readonly verifierCanOverrideOwner = false;
+  public readonly canCreateAuthority = false;
+  public readonly canEscalateAuthority = false;
+  public readonly canOverrideOwner = false;
 
-  public readonly verifierCanBypassSecurity = false;
-  public readonly verifierCanIgnoreIntegrityFailure = false;
+  public readonly canBypassSecurity = false;
+  public readonly canBypassIntegrity = false;
 
-  public readonly verifierCanSelfVerify = false;
+  public readonly canDeleteEvidence = false;
+  public readonly canRewriteHistory = false;
+  public readonly canDisableAudit = false;
 
-  public readonly verifierCanIgnoreDuplicateReopen = false;
-  public readonly verifierCanIgnoreEvidenceTampering = false;
-  public readonly verifierCanIgnoreAuditGap = false;
-
-  public readonly verifierCanRewriteIncidentHistory = false;
-  public readonly verifierCanDeleteEvidence = false;
-  public readonly verifierCanDisableAudit = false;
+  public readonly canIgnoreTampering = false;
+  public readonly canIgnoreDuplicateReopen = false;
 
   public readonly stewardCanOverrideOwner = false;
 
-  private readonly records =
-    new Map<
-      string,
-      SovereignIncidentReopenVerificationRecord
-    >();
+  private readonly verifications =
+    new Map<string, IncidentReopenVerificationResult>();
+
+  // --------------------------------------------------------------------------
+  // Verify
+  // --------------------------------------------------------------------------
 
   public verify(
-    request: SovereignIncidentReopenVerificationRequest,
+    request: IncidentReopenVerificationRequest,
     now = Date.now()
-  ): SovereignIncidentReopenVerificationResult {
-    if (
-      this.records.has(request.verificationId)
-    ) {
-      return this.failure(
-        request.verificationId,
-        request.reopenId,
-        request.incidentId,
-        request.target,
-        "REOPEN_VERIFICATION_ALREADY_EXISTS"
+  ): IncidentReopenVerificationResult {
+    if (this.verifications.has(request.verificationId)) {
+      return this.block(
+        request,
+        "VERIFICATION_ALREADY_EXISTS",
+        now
       );
     }
 
-    const requestFailures =
+    const requestErrors =
       this.validateRequest(request);
 
-    if (requestFailures.length > 0) {
-      return {
-        verificationId:
-          request.verificationId,
+    if (requestErrors.length > 0) {
+      return this.store({
+        verificationId: request.verificationId,
+        reopenId: request.reopenId,
+        incidentId: request.incidentId,
+        target: request.target,
 
-        reopenId:
-          request.reopenId,
+        status: "BLOCKED",
+        decision: "BLOCK_REOPEN",
 
-        incidentId:
-          request.incidentId,
+        verified: false,
 
-        target:
-          request.target,
-
-        accepted: false,
-
-        state: "BLOCKED",
-        decision: "BLOCK",
-
-        reasons:
-          requestFailures,
+        reasons: requestErrors,
 
         timestamp: now,
 
         authority: "NONE"
-      };
+      });
     }
 
-    const evidenceFailures =
-      this.validateEvidence(
-        request.evidence,
-        request.policy
-      );
+    const evidenceErrors =
+      this.validateEvidence(request.evidence);
 
-    let state:
-      SovereignIncidentReopenVerificationState;
+    if (evidenceErrors.length > 0) {
+      const hardBlock =
+        this.containsHardFailure(evidenceErrors);
 
-    let decision:
-      SovereignIncidentReopenVerificationDecision;
+      return this.store({
+        verificationId: request.verificationId,
+        reopenId: request.reopenId,
+        incidentId: request.incidentId,
+        target: request.target,
 
-    if (evidenceFailures.length === 0) {
-      state = "PASSED";
-      decision = "PASS";
-    } else if (
-      this.hasHardBlock(evidenceFailures)
-    ) {
-      state = "BLOCKED";
-      decision = "BLOCK";
-    } else {
-      state = "FAILED";
-      decision = "FAIL";
-    }
+        status: hardBlock
+          ? "BLOCKED"
+          : "REJECTED",
 
-    const record:
-      SovereignIncidentReopenVerificationRecord = {
-        verificationId:
-          request.verificationId,
+        decision: hardBlock
+          ? "BLOCK_REOPEN"
+          : "REJECT_REOPEN",
 
-        reopenId:
-          request.reopenId,
+        verified: false,
 
-        incidentId:
-          request.incidentId,
+        reasons: evidenceErrors,
 
-        target:
-          request.target,
-
-        reopenedBy:
-          request.reopenedBy,
-
-        verifierId:
-          request.verifierId,
-
-        state,
-        decision,
-
-        createdAt:
-          request.createdAt,
-
-        evaluatedAt:
-          now,
-
-        completedAt:
-          state === "PASSED" ||
-          state === "FAILED"
-            ? now
-            : undefined,
-
-        reasons:
-          evidenceFailures.length === 0
-            ? [
-                "INCIDENT_REOPEN_VERIFIED",
-                "RECURRENCE_LINK_VERIFIED",
-                "PRIOR_EVIDENCE_PRESERVATION_VERIFIED"
-              ]
-            : [
-                ...evidenceFailures
-              ],
+        timestamp: now,
 
         authority: "NONE"
-      };
+      });
+    }
 
-    this.records.set(
-      request.verificationId,
-      record
-    );
+    return this.store({
+      verificationId: request.verificationId,
+      reopenId: request.reopenId,
+      incidentId: request.incidentId,
+      target: request.target,
 
-    return this.result(
-      record,
-      now
-    );
+      status: "VERIFIED",
+      decision: "ALLOW_REOPEN",
+
+      verified: true,
+
+      reasons: [
+        "INCIDENT_REOPEN_VERIFIED",
+        "RECURRENCE_CONFIRMED",
+        "EVIDENCE_PRESERVED",
+        "AUDIT_TRAIL_PRESERVED",
+        "SECURITY_VALIDATED",
+        "INTEGRITY_VALIDATED"
+      ],
+
+      timestamp: now,
+
+      authority: "NONE"
+    });
   }
 
+  // --------------------------------------------------------------------------
+  // Request validation
+  // --------------------------------------------------------------------------
+
   private validateRequest(
-    request:
-      SovereignIncidentReopenVerificationRequest
+    request: IncidentReopenVerificationRequest
   ): string[] {
     const reasons: string[] = [];
 
     if (!request.verificationId) {
-      reasons.push(
-        "VERIFICATION_ID_REQUIRED"
-      );
+      reasons.push("VERIFICATION_ID_REQUIRED");
     }
 
     if (!request.reopenId) {
-      reasons.push(
-        "REOPEN_ID_REQUIRED"
-      );
+      reasons.push("REOPEN_ID_REQUIRED");
     }
 
     if (!request.incidentId) {
-      reasons.push(
-        "INCIDENT_ID_REQUIRED"
-      );
+      reasons.push("INCIDENT_ID_REQUIRED");
     }
 
     if (!request.target) {
-      reasons.push(
-        "TARGET_REQUIRED"
-      );
+      reasons.push("TARGET_REQUIRED");
     }
 
     if (!request.reopenedBy) {
-      reasons.push(
-        "REOPENED_BY_REQUIRED"
-      );
+      reasons.push("REOPENED_BY_REQUIRED");
     }
 
     if (!request.verifierId) {
-      reasons.push(
-        "VERIFIER_ID_REQUIRED"
-      );
+      reasons.push("VERIFIER_ID_REQUIRED");
     }
 
     if (
       request.reopenedBy &&
       request.verifierId &&
-      request.reopenedBy ===
-        request.verifierId
+      request.reopenedBy === request.verifierId
     ) {
-      reasons.push(
-        "SELF_VERIFICATION_PROHIBITED"
-      );
+      reasons.push("SELF_VERIFICATION_PROHIBITED");
+    }
+
+    if (!request.authority.ownerId) {
+      reasons.push("OWNER_ID_REQUIRED");
     }
 
     if (
-      !request.authorityContext.ownerId
+      request.authority.ownerAuthority !== "SUPREME"
     ) {
-      reasons.push(
-        "OWNER_ID_REQUIRED"
-      );
+      reasons.push("OWNER_AUTHORITY_INVALID");
     }
 
     if (
-      request.authorityContext
-        .ownerAuthority !== "SUPREME"
+      request.authority.stewardAuthority !== "DELEGATED"
     ) {
-      reasons.push(
-        "OWNER_MUST_REMAIN_SUPREME"
-      );
-    }
-
-    if (
-      request.authorityContext
-        .stewardAuthority !== "DELEGATED"
-    ) {
-      reasons.push(
-        "STEWARD_MUST_REMAIN_DELEGATED"
-      );
+      reasons.push("STEWARD_AUTHORITY_INVALID");
     }
 
     return reasons;
   }
 
-  private validateEvidence(
-    evidence:
-      SovereignIncidentReopenVerificationEvidence,
+  // --------------------------------------------------------------------------
+  // Evidence validation
+  // --------------------------------------------------------------------------
 
-    policy:
-      SovereignIncidentReopenVerificationPolicy
+  private validateEvidence(
+    evidence: IncidentReopenEvidence
   ): string[] {
     const reasons: string[] = [];
 
-    if (
-      policy.requireOriginalIncident &&
-      !evidence.originalIncidentExists
-    ) {
-      reasons.push(
-        "ORIGINAL_INCIDENT_NOT_FOUND"
-      );
+    if (!evidence.incidentExists) {
+      reasons.push("INCIDENT_NOT_FOUND");
     }
 
-    if (
-      policy.requireOriginalClosure &&
-      !evidence.originalClosureExists
-    ) {
-      reasons.push(
-        "ORIGINAL_CLOSURE_NOT_FOUND"
-      );
+    if (!evidence.incidentWasClosed) {
+      reasons.push("INCIDENT_WAS_NOT_CLOSED");
     }
 
-    if (
-      policy.requireConfirmedRecurrence &&
-      !evidence.recurrenceConfirmed
-    ) {
-      reasons.push(
-        "RECURRENCE_NOT_CONFIRMED"
-      );
+    if (!evidence.recurrenceConfirmed) {
+      reasons.push("RECURRENCE_NOT_CONFIRMED");
     }
 
-    if (
-      policy.requireMonitorVerification &&
-      !evidence.recurrenceMonitorVerified
-    ) {
-      reasons.push(
-        "RECURRENCE_MONITOR_NOT_VERIFIED"
-      );
+    if (!evidence.recurrenceMonitorLinked) {
+      reasons.push("RECURRENCE_MONITOR_NOT_LINKED");
     }
 
-    if (
-      policy.requireResponseVerification &&
-      !evidence.recurrenceResponseVerified
-    ) {
-      reasons.push(
-        "RECURRENCE_RESPONSE_NOT_VERIFIED"
-      );
+    if (!evidence.recurrenceResponseLinked) {
+      reasons.push("RECURRENCE_RESPONSE_NOT_LINKED");
     }
 
-    if (
-      policy.requireRootCauseMatch &&
-      !evidence.sameRootCauseConfirmed
-    ) {
-      reasons.push(
-        "ROOT_CAUSE_MATCH_NOT_CONFIRMED"
-      );
+    if (!evidence.originalEvidencePreserved) {
+      reasons.push("ORIGINAL_EVIDENCE_NOT_PRESERVED");
     }
 
-    if (
-      policy.requireFailurePatternMatch &&
-      !evidence.sameFailurePatternConfirmed
-    ) {
-      reasons.push(
-        "FAILURE_PATTERN_MATCH_NOT_CONFIRMED"
-      );
+    if (!evidence.auditTrailPreserved) {
+      reasons.push("AUDIT_TRAIL_NOT_PRESERVED");
     }
 
-    if (
-      policy.requireOriginalEvidencePreservation &&
-      !evidence.originalEvidencePreserved
-    ) {
-      reasons.push(
-        "ORIGINAL_EVIDENCE_NOT_PRESERVED"
-      );
+    if (!evidence.correctiveActionsPreserved) {
+      reasons.push("CORRECTIVE_ACTIONS_NOT_PRESERVED");
     }
 
-    if (
-      policy.requireAuditPreservation &&
-      !evidence.previousAuditTrailPreserved
-    ) {
-      reasons.push(
-        "PREVIOUS_AUDIT_TRAIL_NOT_PRESERVED"
-      );
+    if (!evidence.preventiveControlsPreserved) {
+      reasons.push("PREVENTIVE_CONTROLS_NOT_PRESERVED");
     }
 
-    if (
-      policy.requireCorrectiveActionPreservation &&
-      !evidence.previousCorrectiveActionsPreserved
-    ) {
-      reasons.push(
-        "PREVIOUS_CORRECTIVE_ACTIONS_NOT_PRESERVED"
-      );
+    if (!evidence.securityValidated) {
+      reasons.push("SECURITY_VALIDATION_FAILED");
     }
 
-    if (
-      policy.requirePreventiveControlPreservation &&
-      !evidence.previousPreventiveControlsPreserved
-    ) {
-      reasons.push(
-        "PREVIOUS_PREVENTIVE_CONTROLS_NOT_PRESERVED"
-      );
+    if (!evidence.integrityValidated) {
+      reasons.push("INTEGRITY_VALIDATION_FAILED");
     }
 
-    if (
-      policy.requireSecurityContext &&
-      !evidence.securityContextPreserved
-    ) {
-      reasons.push(
-        "SECURITY_CONTEXT_NOT_PRESERVED"
-      );
+    if (evidence.duplicateReopenDetected) {
+      reasons.push("DUPLICATE_REOPEN_DETECTED");
     }
 
-    if (
-      policy.requireIntegrityContext &&
-      !evidence.integrityContextPreserved
-    ) {
-      reasons.push(
-        "INTEGRITY_CONTEXT_NOT_PRESERVED"
-      );
-    }
-
-    if (
-      policy.requireReasonDocumentation &&
-      !evidence.reopenReasonDocumented
-    ) {
-      reasons.push(
-        "REOPEN_REASON_NOT_DOCUMENTED"
-      );
-    }
-
-    if (
-      policy.requireTimestamp &&
-      !evidence.reopenTimestampRecorded
-    ) {
-      reasons.push(
-        "REOPEN_TIMESTAMP_NOT_RECORDED"
-      );
-    }
-
-    if (
-      policy.rejectDuplicateReopen &&
-      evidence.duplicateReopenDetected
-    ) {
-      reasons.push(
-        "DUPLICATE_REOPEN_DETECTED"
-      );
-    }
-
-    if (
-      policy.rejectEvidenceTampering &&
-      evidence.evidenceTamperingDetected
-    ) {
-      reasons.push(
-        "EVIDENCE_TAMPERING_DETECTED"
-      );
-    }
-
-    if (
-      policy.rejectAuditGap &&
-      evidence.auditGapDetected
-    ) {
-      reasons.push(
-        "AUDIT_GAP_DETECTED"
-      );
+    if (evidence.evidenceTamperingDetected) {
+      reasons.push("EVIDENCE_TAMPERING_DETECTED");
     }
 
     return reasons;
   }
 
-  private hasHardBlock(
+  // --------------------------------------------------------------------------
+  // Hard failures
+  // --------------------------------------------------------------------------
+
+  private containsHardFailure(
     reasons: string[]
   ): boolean {
-    const hardBlocks =
-      new Set<string>([
-        "ORIGINAL_INCIDENT_NOT_FOUND",
-        "RECURRENCE_NOT_CONFIRMED",
-        "ORIGINAL_EVIDENCE_NOT_PRESERVED",
-        "PREVIOUS_AUDIT_TRAIL_NOT_PRESERVED",
-        "SECURITY_CONTEXT_NOT_PRESERVED",
-        "INTEGRITY_CONTEXT_NOT_PRESERVED",
-        "DUPLICATE_REOPEN_DETECTED",
-        "EVIDENCE_TAMPERING_DETECTED",
-        "AUDIT_GAP_DETECTED"
-      ]);
+    const hardFailures = new Set<string>([
+      "INCIDENT_NOT_FOUND",
+      "RECURRENCE_NOT_CONFIRMED",
+      "ORIGINAL_EVIDENCE_NOT_PRESERVED",
+      "AUDIT_TRAIL_NOT_PRESERVED",
+      "SECURITY_VALIDATION_FAILED",
+      "INTEGRITY_VALIDATION_FAILED",
+      "DUPLICATE_REOPEN_DETECTED",
+      "EVIDENCE_TAMPERING_DETECTED"
+    ]);
 
-    return reasons.some(
-      (reason) =>
-        hardBlocks.has(reason)
+    return reasons.some((reason) =>
+      hardFailures.has(reason)
     );
   }
 
-  public reject(
-    verificationId: string,
+  // --------------------------------------------------------------------------
+  // Storage
+  // --------------------------------------------------------------------------
+
+  private store(
+    result: IncidentReopenVerificationResult
+  ): IncidentReopenVerificationResult {
+    this.verifications.set(
+      result.verificationId,
+      {
+        ...result,
+        reasons: [...result.reasons]
+      }
+    );
+
+    return {
+      ...result,
+      reasons: [...result.reasons]
+    };
+  }
+
+  private block(
+    request: IncidentReopenVerificationRequest,
     reason: string,
-    now = Date.now()
-  ): SovereignIncidentReopenVerificationResult {
-    const record =
-      this.records.get(verificationId);
-
-    if (!record) {
-      return this.failure(
-        verificationId,
-        "",
-        "",
-        "",
-        "REOPEN_VERIFICATION_NOT_FOUND"
-      );
-    }
-
-    if (
-      record.state === "PASSED"
-    ) {
-      return this.failure(
-        record.verificationId,
-        record.reopenId,
-        record.incidentId,
-        record.target,
-        "REOPEN_VERIFICATION_ALREADY_PASSED"
-      );
-    }
-
-    record.state =
-      "REJECTED";
-
-    record.decision =
-      "REJECT";
-
-    record.evaluatedAt =
-      now;
-
-    record.reasons = [
-      reason ||
-        "INCIDENT_REOPEN_VERIFICATION_REJECTED"
-    ];
-
-    this.records.set(
-      verificationId,
-      record
-    );
-
-    return this.result(
-      record,
-      now
-    );
-  }
-
-  public getRecord(
-    verificationId: string
-  ):
-    | SovereignIncidentReopenVerificationRecord
-    | undefined {
-    const record =
-      this.records.get(
-        verificationId
-      );
-
-    return record
-      ? {
-          ...record,
-          reasons: [
-            ...record.reasons
-          ]
-        }
-      : undefined;
-  }
-
-  public getPassedVerifications():
-    SovereignIncidentReopenVerificationRecord[] {
-    return [
-      ...this.records.values()
-    ]
-      .filter(
-        (record) =>
-          record.state === "PASSED"
-      )
-      .map(
-        (record) => ({
-          ...record,
-          reasons: [
-            ...record.reasons
-          ]
-        })
-      );
-  }
-
-  public getFailedVerifications():
-    SovereignIncidentReopenVerificationRecord[] {
-    return [
-      ...this.records.values()
-    ]
-      .filter(
-        (record) =>
-          record.state === "FAILED" ||
-          record.state === "BLOCKED" ||
-          record.state === "REJECTED"
-      )
-      .map(
-        (record) => ({
-          ...record,
-          reasons: [
-            ...record.reasons
-          ]
-        })
-      );
-  }
-
-  private result(
-    record:
-      SovereignIncidentReopenVerificationRecord,
     now: number
-  ): SovereignIncidentReopenVerificationResult {
+  ): IncidentReopenVerificationResult {
     return {
-      verificationId:
-        record.verificationId,
+      verificationId: request.verificationId,
+      reopenId: request.reopenId,
+      incidentId: request.incidentId,
+      target: request.target,
 
-      reopenId:
-        record.reopenId,
+      status: "BLOCKED",
+      decision: "BLOCK_REOPEN",
 
-      incidentId:
-        record.incidentId,
+      verified: false,
 
-      target:
-        record.target,
+      reasons: [reason],
 
-      accepted:
-        record.decision === "PASS",
+      timestamp: now,
 
-      state:
-        record.state,
-
-      decision:
-        record.decision,
-
-      reasons: [
-        ...record.reasons
-      ],
-
-      timestamp:
-        now,
-
-      authority:
-        "NONE"
+      authority: "NONE"
     };
   }
 
-  private failure(
-    verificationId: string,
-    reopenId: string,
-    incidentId: string,
-    target: string,
-    reason: string
-  ): SovereignIncidentReopenVerificationResult {
+  // --------------------------------------------------------------------------
+  // Queries
+  // --------------------------------------------------------------------------
+
+  public getVerification(
+    verificationId: string
+  ): IncidentReopenVerificationResult | undefined {
+    const result =
+      this.verifications.get(verificationId);
+
+    if (!result) {
+      return undefined;
+    }
+
     return {
-      verificationId,
-      reopenId,
-      incidentId,
-      target,
-
-      accepted:
-        false,
-
-      state:
-        "BLOCKED",
-
-      decision:
-        "BLOCK",
-
-      reasons: [
-        reason
-      ],
-
-      timestamp:
-        Date.now(),
-
-      authority:
-        "NONE"
+      ...result,
+      reasons: [...result.reasons]
     };
   }
+
+  public isVerified(
+    verificationId: string
+  ): boolean {
+    return (
+      this.verifications.get(verificationId)
+        ?.verified === true
+    );
+  }
+
+  public getVerified():
+    IncidentReopenVerificationResult[] {
+    return [...this.verifications.values()]
+      .filter((result) => result.verified)
+      .map((result) => ({
+        ...result,
+        reasons: [...result.reasons]
+      }));
+  }
+
+  public getBlocked():
+    IncidentReopenVerificationResult[] {
+    return [...this.verifications.values()]
+      .filter(
+        (result) =>
+          result.status === "BLOCKED"
+      )
+      .map((result) => ({
+        ...result,
+        reasons: [...result.reasons]
+      }));
+  }
+
+  // --------------------------------------------------------------------------
+  // Sovereignty assertion
+  // --------------------------------------------------------------------------
 
   public assertSovereignty(): boolean {
     return (
       this.authority === "NONE" &&
       this.ownerAuthority === "SUPREME" &&
       this.stewardAuthority === "DELEGATED" &&
-      this.verifierCanCreateAuthority === false &&
-      this.verifierCanEscalateAuthority === false &&
-      this.verifierCanOverrideOwner === false &&
-      this.verifierCanBypassSecurity === false &&
-      this.verifierCanIgnoreIntegrityFailure === false &&
-      this.verifierCanSelfVerify === false &&
-      this.verifierCanIgnoreDuplicateReopen === false &&
-      this.verifierCanIgnoreEvidenceTampering === false &&
-      this.verifierCanIgnoreAuditGap === false &&
-      this.verifierCanRewriteIncidentHistory === false &&
-      this.verifierCanDeleteEvidence === false &&
-      this.verifierCanDisableAudit === false &&
+
+      this.canCreateAuthority === false &&
+      this.canEscalateAuthority === false &&
+      this.canOverrideOwner === false &&
+
+      this.canBypassSecurity === false &&
+      this.canBypassIntegrity === false &&
+
+      this.canDeleteEvidence === false &&
+      this.canRewriteHistory === false &&
+      this.canDisableAudit === false &&
+
+      this.canIgnoreTampering === false &&
+      this.canIgnoreDuplicateReopen === false &&
+
       this.stewardCanOverrideOwner === false
     );
   }
