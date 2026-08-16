@@ -25,6 +25,19 @@ import type {
   SovereignFinalVerification
 } from "./SOVEREIGN-AI-BOOTSTRAP-220.ts";
 
+import {
+  SovereignAIAutonomousRuntime
+} from "./SOVEREIGN-AI-AUTONOMOUS-RUNTIME-215.ts";
+
+import type {
+  SovereignAutonomousRuntimeAdapter,
+  SovereignRuntimeCommand,
+  SovereignRuntimeBuildResult,
+  SovereignRuntimeTestResult,
+  SovereignRuntimeReleaseResult,
+  SovereignRuntimeVerification
+} from "./SOVEREIGN-AI-AUTONOMOUS-RUNTIME-215.ts";
+
 // ============================================================
 // REAL COMPONENT MODULE MAP
 // ============================================================
@@ -176,10 +189,20 @@ const componentModules:
   };
 
 // ============================================================
-// GENERIC REAL MODULE WRAPPER
+// MODULE CACHE
 // ============================================================
 
-class SovereignLoadedModule {
+const moduleCache =
+  new Map<
+    SovereignFinalComponent,
+    Record<string, unknown>
+  >();
+
+// ============================================================
+// GENERIC MODULE BRIDGE
+// ============================================================
+
+class SovereignRealModuleBridge {
   public constructor(
     public readonly component:
       SovereignFinalComponent,
@@ -193,37 +216,93 @@ class SovereignLoadedModule {
 
   public async connect():
     Promise<void> {
-    const candidate =
-      this.findMethod(
-        "connect"
-      );
+    const method =
+      this.findMethod("connect");
 
-    if (candidate) {
-      await candidate();
+    if (method) {
+      await method();
     }
   }
 
   public async healthCheck():
     Promise<boolean> {
-    const candidate =
+    const method =
       this.findMethod(
         "healthCheck"
       );
 
-    if (!candidate) {
+    if (!method) {
       return true;
     }
 
     const result =
-      await candidate();
+      await method();
 
-    return result !== false;
+    if (
+      typeof result ===
+      "boolean"
+    ) {
+      return result;
+    }
+
+    if (
+      result &&
+      typeof result ===
+        "object"
+    ) {
+      const record =
+        result as Record<
+          string,
+          unknown
+        >;
+
+      if (
+        record["healthy"] ===
+        false ||
+        record["ready"] ===
+        false ||
+        record["success"] ===
+        false
+      ) {
+        return false;
+      }
+    }
+
+    return true;
+  }
+
+  public getMethod(
+    ...names: string[]
+  ):
+    | ((
+        ...args: unknown[]
+      ) => Promise<unknown>)
+    | undefined {
+    for (
+      const name of names
+    ) {
+      const method =
+        this.findMethod(name);
+
+      if (method) {
+        return async (
+          ...args: unknown[]
+        ) =>
+          await method(...args);
+      }
+    }
+
+    return undefined;
   }
 
   private findMethod(
     name: string
   ):
-    | (() => unknown | Promise<unknown>)
+    | ((
+        ...args: unknown[]
+      ) =>
+        unknown |
+        Promise<unknown>)
     | undefined {
     const direct =
       this.module[name];
@@ -234,7 +313,9 @@ class SovereignLoadedModule {
     ) {
       return direct.bind(
         this.module
-      ) as () =>
+      ) as (
+        ...args: unknown[]
+      ) =>
         unknown |
         Promise<unknown>;
     }
@@ -247,19 +328,24 @@ class SovereignLoadedModule {
       typeof defaultExport ===
         "object"
     ) {
-      const value =
+      const candidate =
         (
           defaultExport as
-            Record<string, unknown>
+            Record<
+              string,
+              unknown
+            >
         )[name];
 
       if (
-        typeof value ===
+        typeof candidate ===
         "function"
       ) {
-        return value.bind(
+        return candidate.bind(
           defaultExport
-        ) as () =>
+        ) as (
+          ...args: unknown[]
+        ) =>
           unknown |
           Promise<unknown>;
       }
@@ -267,6 +353,591 @@ class SovereignLoadedModule {
 
     return undefined;
   }
+}
+
+// ============================================================
+// MODULE LOADER
+// ============================================================
+
+async function loadModule(
+  component:
+    SovereignFinalComponent
+): Promise<
+  Record<string, unknown>
+> {
+  const cached =
+    moduleCache.get(component);
+
+  if (cached) {
+    return cached;
+  }
+
+  const modulePath =
+    componentModules[
+      component
+    ];
+
+  if (!modulePath) {
+    throw new Error(
+      `${component} has no registered module path.`
+    );
+  }
+
+  const loaded =
+    await import(
+      modulePath
+    ) as Record<
+      string,
+      unknown
+    >;
+
+  moduleCache.set(
+    component,
+    loaded
+  );
+
+  return loaded;
+}
+
+// ============================================================
+// METHOD INVOCATION
+// ============================================================
+
+async function invokeComponent(
+  component:
+    SovereignFinalComponent,
+
+  methodNames:
+    string[],
+
+  ...args: unknown[]
+): Promise<unknown> {
+  const module =
+    await loadModule(
+      component
+    );
+
+  const bridge =
+    new SovereignRealModuleBridge(
+      component,
+      componentModules[
+        component
+      ]!,
+      module
+    );
+
+  const method =
+    bridge.getMethod(
+      ...methodNames
+    );
+
+  if (!method) {
+    throw new Error(
+      `${component} does not expose any supported method: ${methodNames.join(
+        ", "
+      )}`
+    );
+  }
+
+  return await method(
+    ...args
+  );
+}
+
+// ============================================================
+// RESULT HELPERS
+// ============================================================
+
+function asRecord(
+  value: unknown
+): Record<string, unknown> {
+  return (
+    value &&
+    typeof value ===
+      "object"
+  )
+    ? value as
+        Record<
+          string,
+          unknown
+        >
+    : {};
+}
+
+function errorList(
+  value: unknown
+): string[] {
+  return Array.isArray(value)
+    ? value.map(String)
+    : [];
+}
+
+function projectIdFrom(
+  command:
+    SovereignRuntimeCommand,
+
+  result:
+    Record<string, unknown>
+): string {
+  if (
+    typeof result[
+      "projectId"
+    ] === "string" &&
+    result[
+      "projectId"
+    ]
+  ) {
+    return result[
+      "projectId"
+    ] as string;
+  }
+
+  if (command.projectId) {
+    return command.projectId;
+  }
+
+  throw new Error(
+    "Runtime build did not provide projectId."
+  );
+}
+
+// ============================================================
+// BUILD NORMALIZATION
+// ============================================================
+
+function normalizeBuildResult(
+  command:
+    SovereignRuntimeCommand,
+
+  raw: unknown
+): SovereignRuntimeBuildResult {
+  const result =
+    asRecord(raw);
+
+  const errors =
+    errorList(
+      result["errors"]
+    );
+
+  const success =
+    result["success"] ===
+      true ||
+    result["ready"] ===
+      true ||
+    result["state"] ===
+      "COMPLETED";
+
+  return {
+    projectId:
+      projectIdFrom(
+        command,
+        result
+      ),
+
+    success,
+
+    artifactPath:
+      typeof result[
+        "artifactPath"
+      ] === "string"
+        ? result[
+            "artifactPath"
+          ] as string
+        : undefined,
+
+    playable:
+      typeof result[
+        "playable"
+      ] === "boolean"
+        ? result[
+            "playable"
+          ] as boolean
+        : undefined,
+
+    output:
+      result["output"] ??
+      raw,
+
+    errors:
+      success
+        ? errors
+        : errors.length > 0
+          ? errors
+          : [
+              "Builder did not report successful completion."
+            ]
+  };
+}
+
+// ============================================================
+// AUTONOMOUS RUNTIME ADAPTER
+// ============================================================
+
+function createAutonomousRuntimeAdapter():
+  SovereignAutonomousRuntimeAdapter {
+  return {
+    async buildPlatform(
+      command
+    ): Promise<SovereignRuntimeBuildResult> {
+      const raw =
+        await invokeComponent(
+          "PLATFORM_BUILDER",
+          [
+            "buildPlatform",
+            "build",
+            "execute",
+            "create"
+          ],
+          command
+        );
+
+      return normalizeBuildResult(
+        command,
+        raw
+      );
+    },
+
+    async buildGame(
+      command
+    ): Promise<SovereignRuntimeBuildResult> {
+      const raw =
+        await invokeComponent(
+          "GAME_BUILDER",
+          [
+            "buildGame",
+            "build",
+            "execute",
+            "create"
+          ],
+          command
+        );
+
+      return normalizeBuildResult(
+        command,
+        raw
+      );
+    },
+
+    async buildAdmin(
+      command
+    ): Promise<SovereignRuntimeBuildResult> {
+      const raw =
+        await invokeComponent(
+          "ADMIN_BUILDER",
+          [
+            "buildAdmin",
+            "build",
+            "execute",
+            "create"
+          ],
+          command
+        );
+
+      return normalizeBuildResult(
+        command,
+        raw
+      );
+    },
+
+    async buildCapability(
+      command
+    ): Promise<SovereignRuntimeBuildResult> {
+      const raw =
+        await invokeComponent(
+          "PROJECT_BUILDER",
+          [
+            "buildCapability",
+            "buildProject",
+            "build",
+            "execute",
+            "create"
+          ],
+          command
+        );
+
+      return normalizeBuildResult(
+        command,
+        raw
+      );
+    },
+
+    async testAndRepair(
+      command,
+      build
+    ): Promise<SovereignRuntimeTestResult> {
+      const raw =
+        await invokeComponent(
+          "SELF_TEST_REPAIR",
+          [
+            "testAndRepair",
+            "execute",
+            "run",
+            "test"
+          ],
+          command,
+          build
+        );
+
+      const result =
+        asRecord(raw);
+
+      const errors =
+        errorList(
+          result["errors"]
+        );
+
+      const success =
+        result["success"] ===
+          true ||
+        result[
+          "releaseAllowed"
+        ] === true ||
+        result["state"] ===
+          "COMPLETED";
+
+      return {
+        success,
+
+        releaseAllowed:
+          result[
+            "releaseAllowed"
+          ] === true ||
+          (
+            success &&
+            result[
+              "releaseAllowed"
+            ] !== false
+          ),
+
+        repaired:
+          result["repaired"] ===
+          true,
+
+        repairAttempts:
+          typeof result[
+            "repairAttempts"
+          ] === "number"
+            ? result[
+                "repairAttempts"
+              ] as number
+            : 0,
+
+        errors:
+          success
+            ? errors
+            : errors.length > 0
+              ? errors
+              : [
+                  "Self-test/repair did not report successful completion."
+                ]
+      };
+    },
+
+    async release(
+      command,
+      build,
+      tests
+    ): Promise<SovereignRuntimeReleaseResult> {
+      const raw =
+        await invokeComponent(
+          "RELEASE_MANAGER",
+          [
+            "release",
+            "publish",
+            "deploy",
+            "execute"
+          ],
+          command,
+          build,
+          tests
+        );
+
+      const result =
+        asRecord(raw);
+
+      const errors =
+        errorList(
+          result["errors"]
+        );
+
+      const success =
+        result["success"] ===
+          true ||
+        result["verified"] ===
+          true ||
+        result["state"] ===
+          "COMPLETED";
+
+      return {
+        success,
+
+        liveTarget:
+          typeof result[
+            "liveTarget"
+          ] === "string"
+            ? result[
+                "liveTarget"
+              ] as string
+            : undefined,
+
+        releaseId:
+          typeof result[
+            "releaseId"
+          ] === "string"
+            ? result[
+                "releaseId"
+              ] as string
+            : undefined,
+
+        verified:
+          result["verified"] ===
+            true,
+
+        errors:
+          success
+            ? errors
+            : errors.length > 0
+              ? errors
+              : [
+                  "Release manager did not report successful completion."
+                ]
+      };
+    },
+
+    async verifyLive(
+      command,
+      release
+    ): Promise<SovereignRuntimeVerification> {
+      let raw:
+        unknown;
+
+      try {
+        raw =
+          await invokeComponent(
+            "VERIFIER",
+            [
+              "verifyLive",
+              "verify",
+              "execute",
+              "check"
+            ],
+            command,
+            release
+          );
+      } catch {
+        raw =
+          await invokeComponent(
+            "RELEASE_MANAGER",
+            [
+              "verifyLive",
+              "verify",
+              "check"
+            ],
+            command,
+            release
+          );
+      }
+
+      const result =
+        asRecord(raw);
+
+      const errors =
+        errorList(
+          result["errors"]
+        );
+
+      const visible =
+        result["visible"] ===
+          true;
+
+      const healthy =
+        result["healthy"] ===
+          true;
+
+      const functional =
+        result["functional"] ===
+          true;
+
+      const success =
+        result["success"] ===
+          true &&
+        visible &&
+        healthy &&
+        functional;
+
+      return {
+        success,
+
+        visible,
+
+        healthy,
+
+        functional,
+
+        playable:
+          typeof result[
+            "playable"
+          ] === "boolean"
+            ? result[
+                "playable"
+              ] as boolean
+            : undefined,
+
+        checks:
+          (
+            result["checks"] &&
+            typeof result[
+              "checks"
+            ] === "object"
+          )
+            ? {
+                ...(
+                  result[
+                    "checks"
+                  ] as Record<
+                    string,
+                    boolean
+                  >
+                )
+              }
+            : {
+                visible,
+                healthy,
+                functional
+              },
+
+        errors:
+          success
+            ? errors
+            : errors.length > 0
+              ? errors
+              : [
+                  "Live verification did not pass all required checks."
+                ]
+      };
+    },
+
+    async recordEvent(
+      event
+    ): Promise<void> {
+      console.log(
+        "[SOVEREIGN AUTONOMOUS EVENT]",
+        event.type,
+        event.state
+      );
+    }
+  };
+}
+
+// ============================================================
+// CREATE REAL AUTONOMOUS RUNTIME
+// ============================================================
+
+function createRealAutonomousRuntime():
+  SovereignAIAutonomousRuntime {
+  return new SovereignAIAutonomousRuntime(
+    createAutonomousRuntimeAdapter()
+  );
 }
 
 // ============================================================
@@ -344,7 +1015,7 @@ function createBootstrapAdapter():
             continue;
           }
 
-          const health =
+          const candidate =
             instance as {
               healthCheck?:
                 () =>
@@ -352,10 +1023,10 @@ function createBootstrapAdapter():
             };
 
           if (
-            health.healthCheck
+            candidate.healthCheck
           ) {
             const healthy =
-              await health
+              await candidate
                 .healthCheck();
 
             if (!healthy) {
@@ -393,22 +1064,6 @@ function createBootstrapAdapter():
       };
     },
 
-    // ========================================================
-    // IMPORTANT:
-    // Bootstrap is already running from FINAL-RUNTIME-222.
-    //
-    // DO NOT create another SovereignAIFinalRuntime here.
-    // DO NOT call launch() here.
-    //
-    // Doing so creates:
-    //
-    // 221 -> 222 -> 220 -> 224 -> 222 -> 221 -> ...
-    //
-    // This stage only confirms that the bootstrap gate
-    // completed and allows FINAL-LAUNCHER-221 to continue to
-    // its own STARTING stage.
-    // ========================================================
-
     async startRuntime(
       request:
         SovereignBootstrapRequest
@@ -437,18 +1092,18 @@ function createBootstrapAdapter():
       runtime:
         SovereignRuntimeStartResult
     ): Promise<SovereignFinalVerification> {
-      const runtimeReady =
-        runtime.success ===
-        true;
-
       const errors = [
         ...runtime.errors
       ];
 
+      const runtimeReady =
+        runtime.success ===
+          true &&
+        errors.length === 0;
+
       return {
         success:
-          runtimeReady &&
-          errors.length === 0,
+          runtimeReady,
 
         brainReady:
           !!componentModules[
@@ -535,7 +1190,7 @@ function createBootstrapAdapter():
 }
 
 // ============================================================
-// BOOTSTRAP FACTORY
+// CREATE REAL BOOTSTRAP
 // ============================================================
 
 function createRealBootstrap():
@@ -563,7 +1218,7 @@ export async function resolveSovereignRealComponent(
   }
 
   // ----------------------------------------------------------
-  // BOOTSTRAP MUST EXPOSE THE REAL boot() METHOD
+  // BOOTSTRAP REAL INSTANCE
   // ----------------------------------------------------------
 
   if (
@@ -574,18 +1229,31 @@ export async function resolveSovereignRealComponent(
   }
 
   // ----------------------------------------------------------
-  // LOAD THE REAL MODULE
+  // AUTONOMOUS RUNTIME REAL INSTANCE
+  //
+  // CRITICAL:
+  // FINAL-RUNTIME-222 requires instance["execute"].
+  // Therefore NEVER wrap AUTONOMOUS_RUNTIME in the generic
+  // module bridge.
+  // ----------------------------------------------------------
+
+  if (
+    component ===
+    "AUTONOMOUS_RUNTIME"
+  ) {
+    return createRealAutonomousRuntime();
+  }
+
+  // ----------------------------------------------------------
+  // GENERIC REAL COMPONENT
   // ----------------------------------------------------------
 
   const module =
-    await import(
-      modulePath
-    ) as Record<
-      string,
-      unknown
-    >;
+    await loadModule(
+      component
+    );
 
-  return new SovereignLoadedModule(
+  return new SovereignRealModuleBridge(
     component,
     modulePath,
     module
@@ -593,7 +1261,7 @@ export async function resolveSovereignRealComponent(
 }
 
 // ============================================================
-// REAL RUNTIME FACTORY
+// REAL FINAL RUNTIME FACTORY
 // ============================================================
 
 export function createSovereignRealRuntime(
@@ -639,26 +1307,51 @@ export function createSovereignRealRuntime(
               boot?: unknown;
             };
 
-          if (
-            typeof bootstrap.boot !==
+          return typeof bootstrap.boot ===
             "function"
-          ) {
-            return {
-              healthy:
-                false,
+            ? {
+                healthy:
+                  true,
 
-              errors: [
-                "BOOTSTRAP component does not expose boot()."
-              ]
+                errors:
+                  []
+              }
+            : {
+                healthy:
+                  false,
+
+                errors: [
+                  "BOOTSTRAP does not expose boot()."
+                ]
+              };
+        }
+
+        if (
+          component ===
+          "AUTONOMOUS_RUNTIME"
+        ) {
+          const runtime =
+            instance as {
+              execute?: unknown;
             };
-          }
 
-          return {
-            healthy:
-              true,
+          return typeof runtime.execute ===
+            "function"
+            ? {
+                healthy:
+                  true,
 
-            errors: []
-          };
+                errors:
+                  []
+              }
+            : {
+                healthy:
+                  false,
+
+                errors: [
+                  "AUTONOMOUS_RUNTIME does not expose execute()."
+                ]
+              };
         }
 
         const candidate =
@@ -676,25 +1369,23 @@ export function createSovereignRealRuntime(
               await candidate
                 .healthCheck();
 
-            if (!healthy) {
-              return {
-                healthy:
-                  false,
+            return {
+              healthy,
 
-                errors: [
-                  `${component} health check failed.`
-                ]
-              };
-            }
+              errors:
+                healthy
+                  ? []
+                  : [
+                      `${component} health check failed.`
+                    ]
+            };
           } catch (error) {
             return {
               healthy:
                 false,
 
               errors: [
-                `${
-                  component
-                } health check failed: ${
+                `${component}: ${
                   error instanceof Error
                     ? error.message
                     : String(error)
@@ -708,7 +1399,8 @@ export function createSovereignRealRuntime(
           healthy:
             true,
 
-          errors: []
+          errors:
+            []
         };
       },
 
