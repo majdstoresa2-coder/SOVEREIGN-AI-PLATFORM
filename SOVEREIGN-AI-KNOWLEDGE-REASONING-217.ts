@@ -785,3 +785,68 @@ export class SovereignAIKnowledgeReasoning {
 
       platforms: [
         ...context.platforms
+      ],
+
+      knowledge:
+        this.cloneKnowledgeList(
+          context.knowledge
+        ),
+
+      facts: [
+        ...context.facts
+      ],
+
+      constraints: [
+        ...context.constraints
+      ],
+
+      capabilities: [
+        ...context.capabilities
+      ],
+
+      conflicts:
+        context.conflicts.map(
+          item => ({
+            ...item,
+            recordIds: [
+              ...item.recordIds
+            ]
+          })
+        ),
+
+      gaps:
+        context.gaps.map(
+          item => ({
+            ...item
+          })
+        )
+    };
+  }
+
+  private async record(
+    type: string,
+    request: SovereignReasoningRequest,
+    data?: Record<string, unknown>
+  ): Promise<void> {
+    if (!this.adapter.recordEvent) {
+      return;
+    }
+
+    await this.adapter.recordEvent({
+      type,
+      requestId: request.id,
+      commandId: request.commandId,
+      projectId: request.projectId,
+      timestamp: Date.now(),
+      data
+    });
+  }
+
+  private createId(
+    prefix: string
+  ): string {
+    return `${prefix}-${Date.now()}-${Math.random()
+      .toString(36)
+      .slice(2, 10)}`;
+  }
+}
