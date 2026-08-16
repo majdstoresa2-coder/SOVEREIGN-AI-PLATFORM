@@ -1108,10 +1108,11 @@ export class SovereignCore {
       this.status =
         "DEGRADED";
     }
-
+return (
+  error.retryable === true &&
+  this.co
     return result;
   }
-
   private canRetry(
     error: CoreError,
   ): boolean {
