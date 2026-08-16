@@ -14,31 +14,22 @@ import {
   SovereignFinalLaunchResult,
   SovereignFinalBootstrapResult,
   SovereignFinalRuntimeResult
-} from "./SOVEREIGN-AI-FINAL-LAUNCHER-221";
+} from "./SOVEREIGN-AI-FINAL-LAUNCHER-221.ts";
 
 export interface SovereignRuntimeComponentBinding {
   component: SovereignFinalComponent;
-
   available: boolean;
-
   connected: boolean;
-
   healthy: boolean;
-
   errors: string[];
-
   instance?: unknown;
 }
 
 export interface SovereignFinalRuntimeOptions {
   ownerId: string;
-
   projectId: string;
-
   autonomous?: boolean;
-
   instruction?: string;
-
   liveTarget?: string;
 
   componentResolver?: (
@@ -98,19 +89,11 @@ export class SovereignAIFinalRuntime
     private readonly options:
       SovereignFinalRuntimeOptions
   ) {
-    this.validateOptions(
-      options
-    );
+    this.validateOptions(options);
 
     this.launcher =
-      new SovereignAIFinalLauncher(
-        this
-      );
+      new SovereignAIFinalLauncher(this);
   }
-
-  // ==========================================================
-  // PUBLIC LAUNCH ENTRY
-  // ==========================================================
 
   public async launch(
     instruction?: string
@@ -137,8 +120,7 @@ export class SovereignAIFinalRuntime
           this.options.instruction,
 
         autonomous:
-          this.options.autonomous !==
-          false,
+          this.options.autonomous !== false,
 
         createdAt:
           Date.now(),
@@ -153,9 +135,7 @@ export class SovereignAIFinalRuntime
       };
 
     this.lastResult =
-      await this.launcher.launch(
-        request
-      );
+      await this.launcher.launch(request);
 
     return this.cloneLaunchResult(
       this.lastResult
@@ -174,91 +154,98 @@ export class SovereignAIFinalRuntime
   public isRunning(): boolean {
     return (
       this.launcher.isRunning() &&
-      this.activeRuntime
-        ?.running === true
+      this.activeRuntime?.running === true
     );
   }
 
-  // ==========================================================
-  // COMPONENT DISCOVERY
-  // ==========================================================
-
   public async discoverComponent(
-    component:
-      SovereignFinalComponent
+    component: SovereignFinalComponent
   ): Promise<boolean> {
     const existing =
-      this.bindings.get(
-        component
-      );
+      this.bindings.get(component);
 
     if (
-      existing?.available
+      existing?.available &&
+      existing.instance !== undefined
     ) {
       return true;
     }
 
-    let instance:
-      unknown | undefined;
-
     if (
-      this.options
-        .componentResolver
+      !this.options.componentResolver
     ) {
-      instance =
-        await this.options
-          .componentResolver(
-            component
-          );
+      this.bindings.set(
+        component,
+        {
+          component,
+          available: false,
+          connected: false,
+          healthy: false,
+          errors: [
+            `${component} has no runtime resolver.`
+          ]
+        }
+      );
+
+      return false;
     }
 
-    const available =
-      instance !== undefined &&
-      instance !== null;
+    try {
+      const instance =
+        await this.options
+          .componentResolver(component);
 
-    this.bindings.set(
-      component,
-      {
+      const available =
+        instance !== undefined &&
+        instance !== null;
+
+      this.bindings.set(
         component,
+        {
+          component,
+          available,
+          connected: false,
+          healthy: false,
+          errors:
+            available
+              ? []
+              : [
+                  `${component} was not resolved by the runtime.`
+                ],
+          instance
+        }
+      );
 
-        available,
+      return available;
+    } catch (error) {
+      this.bindings.set(
+        component,
+        {
+          component,
+          available: false,
+          connected: false,
+          healthy: false,
+          errors: [
+            this.errorMessage(error)
+          ]
+        }
+      );
 
-        connected: false,
-
-        healthy: false,
-
-        errors:
-          available
-            ? []
-            : [
-                `${component} was not resolved by the runtime.`
-              ],
-
-        instance
-      }
-    );
-
-    return available;
+      return false;
+    }
   }
 
-  // ==========================================================
-  // COMPONENT CONNECTION
-  // ==========================================================
-
   public async connectComponent(
-    component:
-      SovereignFinalComponent
+    component: SovereignFinalComponent
   ): Promise<boolean> {
     const binding =
-      this.bindings.get(
-        component
-      );
+      this.bindings.get(component);
 
     if (
       !binding ||
       !binding.available ||
-      binding.instance ===
-        undefined
+      binding.instance === undefined ||
+      binding.instance === null
     ) {
       return false;
     }
@@ -271,70 +258,51 @@ export class SovereignAIFinalRuntime
         >;
 
       const connect =
-        instance?.[
-          "connect"
-        ];
+        instance["connect"];
 
       if (
-        typeof connect ===
-        "function"
+        typeof connect === "function"
       ) {
         await (
           connect as (
             ...args: unknown[]
           ) => unknown
-        ).call(
-          binding.instance
-        );
+        ).call(binding.instance);
       }
 
-      binding.connected =
-        true;
-
-      binding.errors =
-        [];
+      binding.connected = true;
+      binding.errors = [];
 
       return true;
     } catch (error) {
-      binding.connected =
-        false;
-
+      binding.connected = false;
+      binding.healthy = false;
       binding.errors = [
-        this.errorMessage(
-          error
-        )
+        this.errorMessage(error)
       ];
 
       return false;
     }
   }
 
-  // ==========================================================
-  // COMPONENT HEALTH
-  // ==========================================================
-
   public async healthCheckComponent(
-    component:
-      SovereignFinalComponent
+    component: SovereignFinalComponent
   ): Promise<{
     healthy: boolean;
     errors: string[];
   }> {
     const binding =
-      this.bindings.get(
-        component
-      );
+      this.bindings.get(component);
 
     if (
       !binding ||
       !binding.available ||
       !binding.connected ||
-      binding.instance ===
-        undefined
+      binding.instance === undefined ||
+      binding.instance === null
     ) {
       return {
         healthy: false,
-
         errors: [
           `${component} is not connected.`
         ]
@@ -377,32 +345,28 @@ export class SovereignAIFinalRuntime
         >;
 
       const healthCheck =
-        instance?.[
-          "healthCheck"
-        ];
+        instance["healthCheck"];
 
       if (
         typeof healthCheck ===
         "function"
       ) {
-        const result =
+        const response =
           await (
             healthCheck as (
               ...args: unknown[]
             ) => unknown
-          ).call(
-            binding.instance
-          );
+          ).call(binding.instance);
 
         if (
-          typeof result ===
+          typeof response ===
           "boolean"
         ) {
           binding.healthy =
-            result;
+            response;
 
           binding.errors =
-            result
+            response
               ? []
               : [
                   `${component} health check returned false.`
@@ -411,47 +375,78 @@ export class SovereignAIFinalRuntime
           return {
             healthy:
               binding.healthy,
-
             errors: [
               ...binding.errors
             ]
           };
         }
+
+        if (
+          typeof response ===
+            "object" &&
+          response !== null
+        ) {
+          const data =
+            response as Record<
+              string,
+              unknown
+            >;
+
+          const healthy =
+            data["healthy"] === true ||
+            data["ready"] === true ||
+            data["success"] === true;
+
+          const errors =
+            Array.isArray(
+              data["errors"]
+            )
+              ? (
+                  data[
+                    "errors"
+                  ] as unknown[]
+                ).map(String)
+              : [];
+
+          binding.healthy =
+            healthy;
+
+          binding.errors =
+            errors;
+
+          return {
+            healthy,
+            errors: [
+              ...errors
+            ]
+          };
+        }
       }
 
-      binding.healthy =
-        true;
-
-      binding.errors =
-        [];
+      // If the component exists, connected successfully,
+      // and exposes no explicit health API, treat the
+      // connection itself as the baseline health signal.
+      binding.healthy = true;
+      binding.errors = [];
 
       return {
         healthy: true,
         errors: []
       };
     } catch (error) {
-      binding.healthy =
-        false;
-
+      binding.healthy = false;
       binding.errors = [
-        this.errorMessage(
-          error
-        )
+        this.errorMessage(error)
       ];
 
       return {
         healthy: false,
-
         errors: [
           ...binding.errors
         ]
       };
     }
   }
-
-  // ==========================================================
-  // FINAL SYSTEM INTEGRATION
-  // ==========================================================
 
   public async integrateSystem(
     request:
@@ -462,12 +457,10 @@ export class SovereignAIFinalRuntime
     success: boolean;
     errors: string[];
   }> {
-    const errors:
-      string[] = [];
+    const errors: string[] = [];
 
     for (
-      const component of
-        components
+      const component of components
     ) {
       if (
         !component.discovered
@@ -530,36 +523,28 @@ export class SovereignAIFinalRuntime
     };
   }
 
-  // ==========================================================
-  // BOOTSTRAP
-  // ==========================================================
-
   public async bootstrap(
     request:
       SovereignFinalLaunchRequest
   ): Promise<SovereignFinalBootstrapResult> {
     if (
-      this.options
-        .bootstrapHandler
+      this.options.bootstrapHandler
     ) {
       return await this.options
-        .bootstrapHandler(
-          request
-        );
+        .bootstrapHandler(request);
     }
 
-    const bootstrapBinding =
+    const binding =
       this.bindings.get(
         "BOOTSTRAP"
       );
 
     if (
-      !bootstrapBinding ||
-      !bootstrapBinding.instance
+      !binding ||
+      !binding.instance
     ) {
       return {
         success: false,
-
         errors: [
           "BOOTSTRAP component is unavailable."
         ]
@@ -567,22 +552,20 @@ export class SovereignAIFinalRuntime
     }
 
     try {
-      const bootstrap =
-        bootstrapBinding.instance as Record<
+      const instance =
+        binding.instance as Record<
           string,
           unknown
         >;
 
       const boot =
-        bootstrap["boot"];
+        instance["boot"];
 
       if (
-        typeof boot !==
-        "function"
+        typeof boot !== "function"
       ) {
         return {
           success: false,
-
           errors: [
             "BOOTSTRAP component does not expose boot()."
           ]
@@ -603,7 +586,7 @@ export class SovereignAIFinalRuntime
             >
           >
         ).call(
-          bootstrapBinding.instance,
+          binding.instance,
           {
             id: this.createId(
               "bootstrap"
@@ -630,22 +613,21 @@ export class SovereignAIFinalRuntime
         );
 
       const success =
-        response?.["ready"] ===
-          true ||
-        response?.["state"] ===
+        response["ready"] === true ||
+        response["state"] ===
           "RUNNING";
 
       return {
         success,
 
         bootstrapId:
-          typeof response?.["id"] ===
+          typeof response["id"] ===
             "string"
             ? response["id"]
             : undefined,
 
         runtimeId:
-          typeof response?.[
+          typeof response[
             "runtimeId"
           ] === "string"
             ? response[
@@ -654,7 +636,7 @@ export class SovereignAIFinalRuntime
             : undefined,
 
         liveTarget:
-          typeof response?.[
+          typeof response[
             "liveTarget"
           ] === "string"
             ? response[
@@ -666,7 +648,7 @@ export class SovereignAIFinalRuntime
           success
             ? []
             : [
-                typeof response?.[
+                typeof response[
                   "error"
                 ] === "string"
                   ? response[
@@ -678,19 +660,12 @@ export class SovereignAIFinalRuntime
     } catch (error) {
       return {
         success: false,
-
         errors: [
-          this.errorMessage(
-            error
-          )
+          this.errorMessage(error)
         ]
       };
     }
   }
-
-  // ==========================================================
-  // AUTONOMOUS RUNTIME START
-  // ==========================================================
 
   public async startRuntime(
     request:
@@ -699,8 +674,7 @@ export class SovereignAIFinalRuntime
       SovereignFinalBootstrapResult
   ): Promise<SovereignFinalRuntimeResult> {
     if (
-      this.options
-        .runtimeHandler
+      this.options.runtimeHandler
     ) {
       const result =
         await this.options
@@ -709,42 +683,30 @@ export class SovereignAIFinalRuntime
             bootstrap
           );
 
-      this.activeRuntime = {
-        ...result,
+      this.activeRuntime =
+        this.cloneRuntimeResult(
+          result
+        );
 
-        errors: [
-          ...result.errors
-        ]
-      };
-
-      return {
-        ...this.activeRuntime,
-
-        errors: [
-          ...this.activeRuntime
-            .errors
-        ]
-      };
+      return this.cloneRuntimeResult(
+        result
+      );
     }
 
-    const runtimeBinding =
+    const binding =
       this.bindings.get(
         "AUTONOMOUS_RUNTIME"
       );
 
     if (
-      !runtimeBinding ||
-      !runtimeBinding.instance
+      !binding ||
+      !binding.instance
     ) {
       return {
         success: false,
-
         running: false,
-
         healthy: false,
-
         visible: false,
-
         errors: [
           "AUTONOMOUS_RUNTIME component is unavailable."
         ]
@@ -752,14 +714,14 @@ export class SovereignAIFinalRuntime
     }
 
     try {
-      const runtime =
-        runtimeBinding.instance as Record<
+      const instance =
+        binding.instance as Record<
           string,
           unknown
         >;
 
       const execute =
-        runtime["execute"];
+        instance["execute"];
 
       if (
         typeof execute !==
@@ -767,18 +729,19 @@ export class SovereignAIFinalRuntime
       ) {
         return {
           success: false,
-
           running: false,
-
           healthy: false,
-
           visible: false,
-
           errors: [
             "AUTONOMOUS_RUNTIME does not expose execute()."
           ]
         };
       }
+
+      const commandType =
+        this.detectCommandType(
+          request.instruction
+        );
 
       const execution =
         await (
@@ -794,7 +757,7 @@ export class SovereignAIFinalRuntime
             >
           >
         ).call(
-          runtimeBinding.instance,
+          binding.instance,
           {
             id: this.createId(
               "runtime-command"
@@ -807,9 +770,7 @@ export class SovereignAIFinalRuntime
               request.projectId,
 
             type:
-              this.detectCommandType(
-                request.instruction
-              ),
+              commandType,
 
             instruction:
               request.instruction ||
@@ -818,8 +779,7 @@ export class SovereignAIFinalRuntime
             autonomous:
               request.autonomous,
 
-            priority:
-              100,
+            priority: 100,
 
             createdAt:
               Date.now()
@@ -827,20 +787,18 @@ export class SovereignAIFinalRuntime
         );
 
       const state =
-        typeof execution?.[
+        typeof execution[
           "state"
         ] === "string"
           ? execution["state"]
           : undefined;
 
       const success =
-        state ===
-          "COMPLETED" ||
-        state ===
-          "RUNNING";
+        state === "COMPLETED" ||
+        state === "RUNNING";
 
       const liveTarget =
-        typeof execution?.[
+        typeof execution[
           "liveTarget"
         ] === "string"
           ? execution[
@@ -849,29 +807,51 @@ export class SovereignAIFinalRuntime
           : bootstrap.liveTarget ??
             this.options.liveTarget;
 
+      const verification =
+        execution[
+          "verification"
+        ];
+
+      let playable:
+        boolean | undefined;
+
+      if (
+        commandType === "GAME"
+      ) {
+        if (
+          typeof verification ===
+            "object" &&
+          verification !== null
+        ) {
+          const verificationData =
+            verification as Record<
+              string,
+              unknown
+            >;
+
+          playable =
+            verificationData[
+              "playable"
+            ] === true;
+        } else {
+          playable = false;
+        }
+      }
+
       const result:
         SovereignFinalRuntimeResult = {
           success,
 
-          running:
-            success,
+          running: success,
 
-          healthy:
-            success,
+          healthy: success,
 
           visible:
             typeof liveTarget ===
               "string" &&
             liveTarget.length > 0,
 
-          playable:
-            execution?.[
-              "type"
-            ] === "GAME"
-              ? execution?.[
-                  "verification"
-                ] !== undefined
-              : undefined,
+          playable,
 
           liveTarget,
 
@@ -879,7 +859,7 @@ export class SovereignAIFinalRuntime
             success
               ? []
               : [
-                  typeof execution?.[
+                  typeof execution[
                     "error"
                   ] === "string"
                     ? execution[
@@ -890,37 +870,25 @@ export class SovereignAIFinalRuntime
         };
 
       this.activeRuntime =
-        result;
+        this.cloneRuntimeResult(
+          result
+        );
 
-      return {
-        ...result,
-
-        errors: [
-          ...result.errors
-        ]
-      };
+      return this.cloneRuntimeResult(
+        result
+      );
     } catch (error) {
       return {
         success: false,
-
         running: false,
-
         healthy: false,
-
         visible: false,
-
         errors: [
-          this.errorMessage(
-            error
-          )
+          this.errorMessage(error)
         ]
       };
     }
   }
-
-  // ==========================================================
-  // FINAL VERIFICATION
-  // ==========================================================
 
   public async verifyRuntime(
     request:
@@ -929,8 +897,7 @@ export class SovereignAIFinalRuntime
       SovereignFinalRuntimeResult
   ): Promise<boolean> {
     if (
-      this.options
-        .runtimeVerifier
+      this.options.runtimeVerifier
     ) {
       return await this.options
         .runtimeVerifier(
@@ -939,40 +906,24 @@ export class SovereignAIFinalRuntime
         );
     }
 
-    if (
-      !runtime.success ||
-      !runtime.running ||
-      !runtime.healthy ||
-      !runtime.visible
-    ) {
-      return false;
-    }
-
-    if (
-      runtime.errors.length > 0
-    ) {
-      return false;
-    }
-
-    return true;
+    return (
+      runtime.success &&
+      runtime.running &&
+      runtime.healthy &&
+      runtime.visible &&
+      runtime.errors.length === 0
+    );
   }
-
-  // ==========================================================
-  // RUNTIME STOP
-  // ==========================================================
 
   public async stopRuntime(
     runtime:
       SovereignFinalRuntimeResult
   ): Promise<void> {
     if (
-      this.options
-        .runtimeStopper
+      this.options.runtimeStopper
     ) {
       await this.options
-        .runtimeStopper(
-          runtime
-        );
+        .runtimeStopper(runtime);
     }
 
     this.activeRuntime =
@@ -990,10 +941,6 @@ export class SovereignAIFinalRuntime
     });
   }
 
-  // ==========================================================
-  // RESULT PERSISTENCE
-  // ==========================================================
-
   public async persistResult(
     result:
       SovereignFinalLaunchResult
@@ -1004,27 +951,17 @@ export class SovereignAIFinalRuntime
       );
   }
 
-  // ==========================================================
-  // EVENT RECORDING
-  // ==========================================================
-
   public async recordEvent(
     event: {
       type: string;
-
       launcherId: string;
-
       requestId: string;
-
       projectId: string;
-
       state:
         SovereignFinalLaunchResult[
           "state"
         ];
-
       timestamp: number;
-
       data?: Record<
         string,
         unknown
@@ -1038,10 +975,6 @@ export class SovereignAIFinalRuntime
       >
     );
   }
-
-  // ==========================================================
-  // COMPONENT BINDING API
-  // ==========================================================
 
   public bindComponent(
     component:
@@ -1061,11 +994,355 @@ export class SovereignAIFinalRuntime
       component,
       {
         component,
-
         available: true,
-
         connected: false,
-
         healthy: false,
+        errors: [],
+        instance
+      }
+    );
+  }
 
-        error
+  public bindComponents(
+    components:
+      Partial<
+        Record<
+          SovereignFinalComponent,
+          unknown
+        >
+      >
+  ): void {
+    for (
+      const [
+        component,
+        instance
+      ] of Object.entries(
+        components
+      )
+    ) {
+      if (
+        instance === undefined ||
+        instance === null
+      ) {
+        continue;
+      }
+
+      this.bindComponent(
+        component as
+          SovereignFinalComponent,
+        instance
+      );
+    }
+  }
+
+  public getComponentStatus(
+    component:
+      SovereignFinalComponent
+  ):
+    | SovereignRuntimeComponentBinding
+    | undefined {
+    const binding =
+      this.bindings.get(component);
+
+    if (!binding) {
+      return undefined;
+    }
+
+    return {
+      ...binding,
+      errors: [
+        ...binding.errors
+      ]
+    };
+  }
+
+  public getAllComponentStatuses():
+    SovereignRuntimeComponentBinding[] {
+    return [
+      ...this.bindings.values()
+    ].map(
+      binding => ({
+        ...binding,
+        errors: [
+          ...binding.errors
+        ]
+      })
+    );
+  }
+
+  private detectCommandType(
+    instruction?: string
+  ):
+    | "PLATFORM"
+    | "GAME"
+    | "ADMIN"
+    | "SOCIAL"
+    | "MEDIA"
+    | "PAYMENTS"
+    | "SERVICE"
+    | "GENERAL" {
+    const text =
+      instruction
+        ?.toLowerCase()
+        .trim() || "";
+
+    if (
+      this.containsAny(
+        text,
+        [
+          "game",
+          "games",
+          "لعبة",
+          "العاب",
+          "ألعاب"
+        ]
+      )
+    ) {
+      return "GAME";
+    }
+
+    if (
+      this.containsAny(
+        text,
+        [
+          "admin",
+          "dashboard",
+          "لوحة التحكم",
+          "الإدارة",
+          "ادارة"
+        ]
+      )
+    ) {
+      return "ADMIN";
+    }
+
+    if (
+      this.containsAny(
+        text,
+        [
+          "social",
+          "tiktok",
+          "snapchat",
+          "instagram",
+          "facebook",
+          "x.com",
+          "تواصل",
+          "سناب",
+          "تيك توك",
+          "انستغرام"
+        ]
+      )
+    ) {
+      return "SOCIAL";
+    }
+
+    if (
+      this.containsAny(
+        text,
+        [
+          "video",
+          "youtube",
+          "live",
+          "tv",
+          "stream",
+          "فيديو",
+          "يوتيوب",
+          "بث",
+          "تلفزيون",
+          "أفلام",
+          "افلام"
+        ]
+      )
+    ) {
+      return "MEDIA";
+    }
+
+    if (
+      this.containsAny(
+        text,
+        [
+          "payment",
+          "wallet",
+          "billing",
+          "دفع",
+          "محفظة",
+          "فاتورة"
+        ]
+      )
+    ) {
+      return "PAYMENTS";
+    }
+
+    if (
+      this.containsAny(
+        text,
+        [
+          "service",
+          "خدمة"
+        ]
+      )
+    ) {
+      return "SERVICE";
+    }
+
+    if (
+      this.containsAny(
+        text,
+        [
+          "platform",
+          "majd",
+          "منصة",
+          "مجد"
+        ]
+      )
+    ) {
+      return "PLATFORM";
+    }
+
+    return "GENERAL";
+  }
+
+  private validateOptions(
+    options:
+      SovereignFinalRuntimeOptions
+  ): void {
+    if (
+      !options.ownerId ||
+      !options.ownerId.trim()
+    ) {
+      throw new Error(
+        "Sovereign runtime requires OWNER id."
+      );
+    }
+
+    if (
+      !options.projectId ||
+      !options.projectId.trim()
+    ) {
+      throw new Error(
+        "Sovereign runtime requires project id."
+      );
+    }
+  }
+
+  private containsAny(
+    text: string,
+    values: string[]
+  ): boolean {
+    return values.some(
+      value =>
+        text.includes(
+          value.toLowerCase()
+        )
+    );
+  }
+
+  private errorMessage(
+    error: unknown
+  ): string {
+    return error instanceof Error
+      ? error.message
+      : String(error);
+  }
+
+  private async emit(
+    event:
+      Record<
+        string,
+        unknown
+      >
+  ): Promise<void> {
+    if (
+      this.options.onEvent
+    ) {
+      await this.options.onEvent(
+        event
+      );
+    }
+  }
+
+  private cloneRuntimeResult(
+    result:
+      SovereignFinalRuntimeResult
+  ): SovereignFinalRuntimeResult {
+    return {
+      ...result,
+      errors: [
+        ...result.errors
+      ]
+    };
+  }
+
+  private cloneLaunchResult(
+    result:
+      SovereignFinalLaunchResult
+  ): SovereignFinalLaunchResult {
+    return {
+      ...result,
+
+      integration:
+        result.integration
+          ? {
+              ...result.integration,
+
+              components:
+                result.integration
+                  .components
+                  .map(
+                    component => ({
+                      ...component,
+                      errors: [
+                        ...component.errors
+                      ]
+                    })
+                  ),
+
+              missing: [
+                ...result.integration
+                  .missing
+              ],
+
+              unhealthy: [
+                ...result.integration
+                  .unhealthy
+              ],
+
+              errors: [
+                ...result.integration
+                  .errors
+              ]
+            }
+          : undefined,
+
+      bootstrap:
+        result.bootstrap
+          ? {
+              ...result.bootstrap,
+              errors: [
+                ...result.bootstrap.errors
+              ]
+            }
+          : undefined,
+
+      runtime:
+        result.runtime
+          ? {
+              ...result.runtime,
+              errors: [
+                ...result.runtime.errors
+              ]
+            }
+          : undefined
+    };
+  }
+
+  private createId(
+    prefix: string
+  ): string {
+    return `${prefix}-${Date.now()}-${Math.random()
+      .toString(36)
+      .slice(2, 10)}`;
+  }
+}
+
+export default SovereignAIFinalRuntime;
