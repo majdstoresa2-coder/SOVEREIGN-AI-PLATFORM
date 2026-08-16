@@ -785,6 +785,80 @@ export class SovereignAISystemIntegration {
     await this.persist(
       result
     );
+    await this.record(
+      `SOVEREIGN_SYSTEM_INTEGRATION_${state}`,
+      result
+    );
+  }
+
+  private async finish(
+    result: SovereignIntegrationResult
+  ): Promise<void> {
+    await this.persist(result);
 
     await this.record(
-      `SOVEREIGN
+      `SOVEREIGN_SYSTEM_INTEGRATION_${result.state}`,
+      result,
+      {
+        ready: result.ready,
+        missing: [...result.missing],
+        unhealthy: [...result.unhealthy],
+        error: result.error,
+        completedAt: result.completedAt
+      }
+    );
+  }
+
+  private async persist(
+    result: SovereignIntegrationResult
+  ): Promise<void> {
+    if (this.adapter.persistResult) {
+      await this.adapter.persistResult(
+        this.cloneResult(result)
+      );
+    }
+  }
+
+  private async record(
+    type: string,
+    result: SovereignIntegrationResult,
+    data?: Record<string, unknown>
+  ): Promise<void> {
+    if (this.adapter.recordEvent) {
+      await this.adapter.recordEvent({
+        type,
+        requestId: result.requestId,
+        projectId: result.projectId,
+        timestamp: Date.now(),
+        data
+      });
+    }
+  }
+
+  private cloneResult(
+    result: SovereignIntegrationResult
+  ): SovereignIntegrationResult {
+    return {
+      ...result,
+
+      components: result.components.map(
+        component => ({
+          ...component,
+          errors: [...component.errors]
+        })
+      ),
+
+      missing: [...result.missing],
+
+      unhealthy: [...result.unhealthy]
+    };
+  }
+
+  private createId(
+    prefix: string
+  ): string {
+    return `${prefix}-${Date.now()}-${Math.random()
+      .toString(36)
+      .slice(2, 10)}`;
+  }
+  }
