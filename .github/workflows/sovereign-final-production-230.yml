@@ -40,70 +40,83 @@ jobs:
             startSovereignProduction
           } from "${{ github.workspace }}/SOVEREIGN-AI-FINAL-PRODUCTION-START-229.ts";
 
-          const result =
-            await startSovereignProduction({
-              ownerId: "OWNER-MAJD",
-              projectId: "SOVEREIGN-AI-PLATFORM",
-              instruction:
-                "Start SOVEREIGN AI PLATFORM in final autonomous production mode."
-            });
+          async function main(): Promise<void> {
+            const result =
+              await startSovereignProduction({
+                ownerId: "OWNER-MAJD",
+                projectId: "SOVEREIGN-AI-PLATFORM",
+                instruction:
+                  "Start SOVEREIGN AI PLATFORM in final autonomous production mode."
+              });
 
-          console.log(
-            JSON.stringify(
-              result,
-              null,
-              2
-            )
-          );
+            console.log(
+              JSON.stringify(
+                result,
+                null,
+                2
+              )
+            );
 
-          if (
-            !result.success ||
-            !result.production ||
-            !result.ownerAccepted ||
-            !result.executed ||
-            !result.running ||
-            !result.ready ||
-            result.state !== "RUNNING"
-          ) {
-            throw new Error(
-              `FINAL PRODUCTION FAILED: state=${result.state}, ready=${result.ready}`
+            if (
+              !result.success ||
+              !result.production ||
+              !result.ownerAccepted ||
+              !result.executed ||
+              !result.running ||
+              !result.ready ||
+              result.state !== "RUNNING"
+            ) {
+              throw new Error(
+                `FINAL PRODUCTION FAILED: state=${result.state}, ready=${result.ready}`
+              );
+            }
+
+            console.log(
+              "============================================"
+            );
+
+            console.log(
+              "SOVEREIGN AI PLATFORM: FINAL SUCCESS"
+            );
+
+            console.log(
+              "PRODUCTION: true"
+            );
+
+            console.log(
+              "OWNER ACCEPTED: true"
+            );
+
+            console.log(
+              "EXECUTED: true"
+            );
+
+            console.log(
+              "STATE: RUNNING"
+            );
+
+            console.log(
+              "READY: true"
+            );
+
+            console.log(
+              "SOVEREIGN AI PLATFORM CLOSED AT 230"
+            );
+
+            console.log(
+              "============================================"
             );
           }
 
-          console.log(
-            "============================================"
-          );
+          main().catch(
+            error => {
+              console.error(
+                "FINAL PRODUCTION ERROR:",
+                error
+              );
 
-          console.log(
-            "SOVEREIGN AI PLATFORM: FINAL SUCCESS"
-          );
-
-          console.log(
-            "PRODUCTION: true"
-          );
-
-          console.log(
-            "OWNER ACCEPTED: true"
-          );
-
-          console.log(
-            "EXECUTED: true"
-          );
-
-          console.log(
-            "STATE: RUNNING"
-          );
-
-          console.log(
-            "READY: true"
-          );
-
-          console.log(
-            "SOVEREIGN AI PLATFORM CLOSED AT 230"
-          );
-
-          console.log(
-            "============================================"
+              process.exitCode = 1;
+            }
           );
           EOF
 
