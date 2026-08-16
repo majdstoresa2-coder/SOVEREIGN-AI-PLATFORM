@@ -1116,6 +1116,187 @@ return (
   private canRetry(
     error: CoreError,
   ): boolean {
+        return result;
+  }
+
+  private canRetry(
+    error: CoreError,
+  ): boolean {
     return (
       error.retryable === true &&
-      this.co
+      this.config.maxRetryAttempts > 0
+    );
+  }
+
+  /* ========================================================
+   * 14. REQUEST REJECTION
+   * ========================================================
+   */
+
+  private async rejectRequest(
+    request: CoreRequest,
+    code: string,
+    message: string,
+  ): Promise<CoreExecutionResult> {
+    const error: CoreError = {
+      code,
+      message,
+      component: this.id,
+      retryable: false,
+      severity: "ERROR",
+      occurredAt: new Date().toISOString(),
+    };
+
+    await this.publishEvent(
+      "request.rejected",
+      {
+        requestId: request.id,
+        error,
+      },
+    );
+
+    this.status = "READY";
+
+    return {
+      success: false,
+      status: "REJECTED",
+      error,
+      jobId: `REQUEST:${request.id}`,
+    };
+  }
+
+  /* ========================================================
+   * 15. REQUEST ESCALATION
+   * ========================================================
+   */
+
+  private async escalateRequest(
+    request: CoreRequest,
+    reason: string,
+  ): Promise<CoreExecutionResult> {
+    const error: CoreError = {
+      code: "ESCALATION_REQUIRED",
+      message: reason,
+      component: this.id,
+      retryable: false,
+      severity: "WARNING",
+      occurredAt: new Date().toISOString(),
+    };
+
+    await this.publishEvent(
+      "request.escalated",
+      {
+        requestId: request.id,
+        reason,
+      },
+    );
+
+    this.status = "READY";
+
+    return {
+      success: false,
+      status: "ESCALATED",
+      error,
+      jobId: `REQUEST:${request.id}`,
+    };
+  }
+
+  /* ========================================================
+   * 16. UNEXPECTED ERROR HANDLING
+   * ========================================================
+   */
+
+  private async handleUnexpectedError(
+    error: unknown,
+    request: CoreRequest,
+    context: CoreContext,
+  ): Promise<CoreExecutionResult> {
+    const coreError =
+      this.normalizeError(
+        error,
+        "CORE_UNEXPECTED_ERROR",
+        this.id,
+      );
+
+    context.errors.push(
+      coreError.code,
+    );
+
+    await this.publishEvent(
+      "core.error",
+      {
+        requestId: request.id,
+        error: coreError,
+      },
+    );
+
+    this.status = "DEGRADED";
+
+    return {
+      success: false,
+      status: "FAILED",
+      error: coreError,
+      jobId: `REQUEST:${request.id}`,
+    };
+  }
+
+  /* ========================================================
+   * 17. ERROR NORMALIZATION
+   * ========================================================
+   */
+
+  private normalizeError(
+    error: unknown,
+    code: string,
+    component: string,
+  ): CoreError {
+    return {
+      code,
+      message:
+        error instanceof Error
+          ? error.message
+          : String(error),
+      component,
+      retryable: true,
+      severity: "ERROR",
+      occurredAt:
+        new Date().toISOString(),
+    };
+  }
+
+  /* ========================================================
+   * 18. EVENT PUBLISHING
+   * ========================================================
+   */
+
+  private async publishEvent(
+    type: string,
+    payload: Record<string, unknown>,
+  ): Promise<void> {
+    const event: CoreEvent = {
+      id: this.generateId("EVENT"),
+      type,
+      source: this.id,
+      timestamp:
+        new Date().toISOString(),
+      payload,
+    };
+
+    await this.events.publish(
+      event,
+    );
+  }
+
+  /* ========================================================
+   * 19. ID GENERATION
+   * ========================================================
+   */
+
+  private generateId(
+    prefix: string,
+  ): string {
+    return `${prefix}-${Date.now()}-${Math.random()
+      .toString(36)
+      .slice(2, 10)}`;
+  }
+}
