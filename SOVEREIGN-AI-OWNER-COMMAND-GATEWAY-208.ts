@@ -1001,9 +1001,137 @@ export class SovereignAIOwnerCommandGateway {
     );
   }
 
-  private async persist(
+    private async persist(
     receipt:
       SovereignOwnerCommandReceipt
   ): Promise<void> {
     if (
+      this.adapter.persistReceipt
+    ) {
+      await this.adapter
+        .persistReceipt(
+          this.cloneReceipt(
+            receipt
+          )
+        );
+    }
+  }
+
+  private async record(
+    type: string,
+    receipt:
+      SovereignOwnerCommandReceipt,
+    data?: Record<string, unknown>
+  ): Promise<void> {
+    if (
+      this.adapter.recordEvent
+    ) {
+      await this.adapter
+        .recordEvent({
+          type,
+
+          commandId:
+            receipt.commandId,
+
+          receiptId:
+            receipt.id,
+
+          timestamp:
+            Date.now(),
+
+          data:
+            data
+              ? {
+                  ...data
+                }
+              : undefined
+        });
+    }
+  }
+
+  private cloneIntent(
+    intent:
+      SovereignCommandIntent
+  ): SovereignCommandIntent {
+    return {
+      ...intent
+    };
+  }
+
+  private cloneNormalized(
+    command:
+      SovereignNormalizedOwnerCommand
+  ): SovereignNormalizedOwnerCommand {
+    return {
+      ...command,
+
+      constraints: [
+        ...command.constraints
+      ],
+
+      intent:
+        this.cloneIntent(
+          command.intent
+        ),
+
+      metadata: {
+        ...command.metadata
+      }
+    };
+  }
+
+  private cloneMasterCommand(
+    command:
+      SovereignMasterCommandEnvelope
+  ): SovereignMasterCommandEnvelope {
+    return {
+      ...command,
+
+      metadata: {
+        ...command.metadata
+      }
+    };
+  }
+
+  private cloneReceipt(
+    receipt:
+      SovereignOwnerCommandReceipt
+  ): SovereignOwnerCommandReceipt {
+    return {
+      ...receipt,
+
+      normalized:
+        receipt.normalized
+          ? this.cloneNormalized(
+              receipt.normalized
+            )
+          : undefined,
+
+      masterCommand:
+        receipt.masterCommand
+          ? this.cloneMasterCommand(
+              receipt.masterCommand
+            )
+          : undefined
+    };
+  }
+
+  private createId(
+    prefix: string
+  ): string {
+    const random =
+      Math.random()
+        .toString(36)
+        .slice(2, 10);
+
+    return [
+      prefix,
+      Date.now()
+        .toString(36),
+      random
+    ].join("-");
+  }
+}
+
+export default SovereignAIOwnerCommandGateway;
      
