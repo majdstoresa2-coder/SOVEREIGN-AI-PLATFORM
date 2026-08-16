@@ -1226,4 +1226,567 @@ export class SovereignRuntime {
       job.id,
     );
 
-    await this.res
+        await this.resources.release(
+      job,
+    );
+
+    await this.safeCleanup(
+      job,
+      context,
+    );
+
+    this.log(
+      job,
+      "Job stopped.",
+    );
+
+    await this.audit.record(
+      "job.stop",
+      job,
+      "SUCCESS",
+    );
+
+    await this.publishEvent(
+      "job.stopped",
+      {
+        jobId:
+          job.id,
+      },
+    );
+
+    return true;
+  }
+
+  /* ==========================================================
+   * 15. RUNTIME CONTROL
+   * ==========================================================
+   */
+
+  public async pauseRuntime(): Promise<void> {
+    if (
+      this.status === "STOPPED"
+    ) {
+      throw new Error(
+        "RUNTIME_STOPPED",
+      );
+    }
+
+    this.status =
+      "PAUSED";
+
+    await this.publishEvent(
+      "runtime.paused",
+      {
+        runtimeId:
+          this.id,
+      },
+    );
+  }
+
+  public async resumeRuntime(): Promise<void> {
+    if (
+      this.status !== "PAUSED"
+    ) {
+      return;
+    }
+
+    this.status =
+      "READY";
+
+    await this.publishEvent(
+      "runtime.resumed",
+      {
+        runtimeId:
+          this.id,
+      },
+    );
+  }
+
+  public async stopRuntime(): Promise<void> {
+    this.status =
+      "STOPPED";
+
+    await this.publishEvent(
+      "runtime.stopped",
+      {
+        runtimeId:
+          this.id,
+
+        activeJobs:
+          this.activeJobs.size,
+      },
+    );
+  }
+
+  /* ==========================================================
+   * 16. JOB ACCESS
+   * ==========================================================
+   */
+
+  public getJob(
+    jobId: string,
+  ): RuntimeJob | undefined {
+    const job =
+      this.jobs.get(jobId);
+
+    return job
+      ? this.cloneJob(job)
+      : undefined;
+  }
+
+  public getJobs():
+    RuntimeJob[] {
+    return Array.from(
+      this.jobs.values(),
+    ).map(
+      job =>
+        this.cloneJob(job),
+    );
+  }
+
+  public getActiveJobs():
+    RuntimeJob[] {
+    return Array.from(
+      this.activeJobs,
+    )
+      .map(
+        jobId =>
+          this.jobs.get(jobId),
+      )
+      .filter(
+        (
+          job,
+        ): job is RuntimeJob =>
+          job !== undefined,
+      )
+      .map(
+        job =>
+          this.cloneJob(job),
+      );
+  }
+
+  /* ==========================================================
+   * 17. RESOURCES
+   * ==========================================================
+   */
+
+  public async getResources():
+    Promise<RuntimeResource[]> {
+    return this.resources
+      .getResources();
+  }
+
+  /* ==========================================================
+   * 18. POLICY
+   * ==========================================================
+   */
+
+  private async validatePolicy(
+    job: RuntimeJob,
+    context: RuntimeExecutionContext,
+  ): Promise<{
+    allowed: boolean;
+
+    reason: string;
+
+    restrictions: string[];
+  }> {
+    if (
+      !this.config
+        .requirePolicyValidation
+    ) {
+      return {
+        allowed: true,
+
+        reason:
+          "Runtime policy validation disabled by configuration.",
+
+        restrictions: [
+          ...context.restrictions,
+        ],
+      };
+    }
+
+    return this.policy
+      .validateExecution(
+        job,
+        context,
+      );
+  }
+
+  /* ==========================================================
+   * 19. SAFE CLEANUP
+   * ==========================================================
+   */
+
+  private async safeCleanup(
+    job: RuntimeJob,
+    context: RuntimeExecutionContext,
+  ): Promise<void> {
+    try {
+      await this.executor.cleanup(
+        job,
+        context,
+      );
+    } catch (error) {
+      const runtimeError =
+        this.normalizeError(
+          error,
+          "RUNTIME_CLEANUP_ERROR",
+        );
+
+      this.log(
+        job,
+        `Cleanup failed: ${runtimeError.message}`,
+      );
+
+      await this.publishEvent(
+        "job.cleanup.failed",
+        {
+          jobId:
+            job.id,
+
+          error:
+            runtimeError,
+        },
+      );
+    }
+  }
+
+  /* ==========================================================
+   * 20. FAILURE RESULT
+   * ==========================================================
+   */
+
+  private failResult(
+    job: RuntimeJob,
+    code: string,
+    message: string,
+    retryable = false,
+  ): RuntimeExecutionResult {
+    const error:
+      RuntimeError = {
+        code,
+
+        message,
+
+        component:
+          this.id,
+
+        severity:
+          "ERROR",
+
+        retryable,
+
+        occurredAt:
+          new Date().toISOString(),
+      };
+
+    job.error =
+      error;
+
+    job.status =
+      "FAILED";
+
+    this.log(
+      job,
+      `${code}: ${message}`,
+    );
+
+    return {
+      success: false,
+
+      status:
+        "FAILED",
+
+      error,
+
+      jobId:
+        job.id,
+
+      attempts:
+        job.attempts,
+    };
+  }
+
+  /* ==========================================================
+   * 21. ERROR NORMALIZATION
+   * ==========================================================
+   */
+
+  private normalizeError(
+    error: unknown,
+    code: string,
+  ): RuntimeError {
+    if (
+      this.isRuntimeError(
+        error,
+      )
+    ) {
+      return {
+        ...error,
+
+        details:
+          error.details
+            ? {
+                ...error.details,
+              }
+            : undefined,
+      };
+    }
+
+    if (
+      error instanceof Error
+    ) {
+      return {
+        code,
+
+        message:
+          error.message,
+
+        component:
+          this.id,
+
+        severity:
+          "ERROR",
+
+        retryable:
+          true,
+
+        occurredAt:
+          new Date().toISOString(),
+
+        details: {
+          name:
+            error.name,
+
+          stack:
+            error.stack,
+        },
+      };
+    }
+
+    return {
+      code,
+
+      message:
+        String(error),
+
+      component:
+        this.id,
+
+      severity:
+        "ERROR",
+
+      retryable:
+        true,
+
+      occurredAt:
+        new Date().toISOString(),
+    };
+  }
+
+  private isRuntimeError(
+    value: unknown,
+  ): value is RuntimeError {
+    if (
+      !value ||
+      typeof value !== "object"
+    ) {
+      return false;
+    }
+
+    const candidate =
+      value as Partial<RuntimeError>;
+
+    return (
+      typeof candidate.code ===
+        "string" &&
+      typeof candidate.message ===
+        "string" &&
+      typeof candidate.component ===
+        "string" &&
+      typeof candidate.retryable ===
+        "boolean" &&
+      typeof candidate.occurredAt ===
+        "string"
+    );
+  }
+
+  /* ==========================================================
+   * 22. JOB REQUIREMENT
+   * ==========================================================
+   */
+
+  private requireJob(
+    jobId: string,
+  ): RuntimeJob {
+    const job =
+      this.jobs.get(jobId);
+
+    if (!job) {
+      throw new Error(
+        `RUNTIME_JOB_NOT_FOUND:${jobId}`,
+      );
+    }
+
+    return job;
+  }
+
+  /* ==========================================================
+   * 23. LOGGING
+   * ==========================================================
+   */
+
+  private log(
+    job: RuntimeJob,
+    message: string,
+  ): void {
+    if (
+      !this.config.preserveLogs
+    ) {
+      return;
+    }
+
+    job.logs.push(
+      `[${new Date().toISOString()}] ${message}`,
+    );
+  }
+
+  /* ==========================================================
+   * 24. EVENTS
+   * ==========================================================
+   */
+
+  private async publishEvent(
+    type: string,
+    payload: Record<
+      string,
+      unknown
+    >,
+  ): Promise<void> {
+    const event:
+      RuntimeEvent = {
+        id:
+          this.generateId(
+            "EVENT",
+          ),
+
+        type,
+
+        source:
+          this.id,
+
+        timestamp:
+          new Date().toISOString(),
+
+        jobId:
+          typeof payload.jobId ===
+            "string"
+            ? payload.jobId
+            : undefined,
+
+        requestId:
+          typeof payload.requestId ===
+            "string"
+            ? payload.requestId
+            : undefined,
+
+        planId:
+          typeof payload.planId ===
+            "string"
+            ? payload.planId
+            : undefined,
+
+        agentId:
+          typeof payload.agentId ===
+            "string"
+            ? payload.agentId
+            : undefined,
+
+        capabilityId:
+          typeof payload.capabilityId ===
+            "string"
+            ? payload.capabilityId
+            : undefined,
+
+        payload: {
+          ...payload,
+        },
+      };
+
+    await this.events.publish(
+      event,
+    );
+  }
+
+  /* ==========================================================
+   * 25. CLONING
+   * ==========================================================
+   */
+
+  private cloneJob(
+    job: RuntimeJob,
+  ): RuntimeJob {
+    return {
+      ...job,
+
+      input: {
+        ...job.input,
+      },
+
+      output:
+        job.output
+          ? {
+              ...job.output,
+            }
+          : undefined,
+
+      error:
+        job.error
+          ? {
+              ...job.error,
+
+              details:
+                job.error.details
+                  ? {
+                      ...job.error
+                        .details,
+                    }
+                  : undefined,
+            }
+          : undefined,
+
+      logs: [
+        ...job.logs,
+      ],
+
+      metadata:
+        job.metadata
+          ? {
+              ...job.metadata,
+            }
+          : undefined,
+    };
+  }
+
+  /* ==========================================================
+   * 26. ID GENERATION
+   * ==========================================================
+   */
+
+  private generateId(
+    prefix: string,
+  ): string {
+    return `${prefix}-${Date.now()}-${Math.random()
+      .toString(36)
+      .slice(2, 10)}`;
+  }
+}
+
+/* ============================================================
+ * 27. EXPORT
+ * ============================================================
+ */
+
+export default SovereignRuntime;
