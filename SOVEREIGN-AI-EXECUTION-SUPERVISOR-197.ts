@@ -27,53 +27,31 @@ export type SovereignExecutionDecision =
 
 export interface SovereignExecutionRecord {
   id: string;
-
   taskId: string;
-
   schedulerTaskId: string;
-
   nodeId?: string;
-
   workerId?: string;
-
   state: SovereignExecutionState;
-
   attempts: number;
-
   maxAttempts: number;
-
   timeoutMs: number;
-
   heartbeatTimeoutMs: number;
-
   startedAt?: number;
-
   lastHeartbeatAt?: number;
-
   completedAt?: number;
-
   result?: unknown;
-
   error?: string;
-
   createdAt: number;
-
   updatedAt: number;
-
   metadata?: Record<string, unknown>;
 }
 
 export interface SovereignExecutionInspection {
   reachable: boolean;
-
   running: boolean;
-
   completed: boolean;
-
   failed: boolean;
-
   result?: unknown;
-
   error?: string;
 }
 
@@ -95,9 +73,7 @@ export interface SovereignExecutionSupervisorAdapter {
     execution: SovereignExecutionRecord
   ): Promise<{
     accepted: boolean;
-
     nodeId?: string;
-
     workerId?: string;
   }>;
 
@@ -111,23 +87,16 @@ export interface SovereignExecutionSupervisorAdapter {
 
   recordEvent?(event: {
     type: string;
-
     executionId?: string;
-
     taskId?: string;
-
     timestamp: number;
-
     data?: Record<string, unknown>;
   }): Promise<void>;
 }
 
 export class SovereignAIExecutionSupervisor {
   private readonly executions =
-    new Map<
-      string,
-      SovereignExecutionRecord
-    >();
+    new Map<string, SovereignExecutionRecord>();
 
   constructor(
     private readonly adapter:
@@ -150,70 +119,47 @@ export class SovereignAIExecutionSupervisor {
   ): Promise<SovereignExecutionRecord> {
     this.validateInput(input);
 
-    if (
-      this.executions.has(
-        input.id
-      )
-    ) {
+    if (this.executions.has(input.id)) {
       throw new Error(
         `Execution already registered: ${input.id}`
       );
     }
 
-    const now =
-      Date.now();
+    const now = Date.now();
 
-    const execution:
-      SovereignExecutionRecord = {
-        ...input,
-
-        state:
-          "PENDING",
-
-        attempts: 0,
-
-        maxAttempts:
-          Math.max(
-            1,
-            input.maxAttempts
-          ),
-
-        timeoutMs:
-          Math.max(
-            1_000,
-            input.timeoutMs
-          ),
-
-        heartbeatTimeoutMs:
-          Math.max(
-            1_000,
-            input.heartbeatTimeoutMs
-          ),
-
-        createdAt:
-          now,
-
-        updatedAt:
-          now
-      };
+    const execution: SovereignExecutionRecord = {
+      ...input,
+      state: "PENDING",
+      attempts: 0,
+      maxAttempts: Math.max(
+        1,
+        input.maxAttempts
+      ),
+      timeoutMs: Math.max(
+        1_000,
+        input.timeoutMs
+      ),
+      heartbeatTimeoutMs: Math.max(
+        1_000,
+        input.heartbeatTimeoutMs
+      ),
+      createdAt: now,
+      updatedAt: now
+    };
 
     this.executions.set(
       execution.id,
       execution
     );
 
-    await this.persist(
-      execution
-    );
+    await this.persist(execution);
 
     await this.record(
       "AI_EXECUTION_REGISTERED",
       execution
     );
 
-    return this.clone(
-      execution
-    );
+    return this.clone(execution);
   }
 
   public async assigned(
@@ -222,29 +168,16 @@ export class SovereignAIExecutionSupervisor {
     workerId?: string
   ): Promise<SovereignExecutionRecord> {
     const execution =
-      this.getMutable(
-        executionId
-      );
+      this.getMutable(executionId);
 
-    this.ensureNotTerminal(
-      execution
-    );
+    this.ensureNotTerminal(execution);
 
-    execution.nodeId =
-      nodeId;
+    execution.nodeId = nodeId;
+    execution.workerId = workerId;
+    execution.state = "ASSIGNED";
+    execution.updatedAt = Date.now();
 
-    execution.workerId =
-      workerId;
-
-    execution.state =
-      "ASSIGNED";
-
-    execution.updatedAt =
-      Date.now();
-
-    await this.persist(
-      execution
-    );
+    await this.persist(execution);
 
     await this.record(
       "AI_EXECUTION_ASSIGNED",
@@ -255,84 +188,71 @@ export class SovereignAIExecutionSupervisor {
       }
     );
 
-    return this.clone(
-      execution
-    );
+    return this.clone(execution);
   }
 
   public async started(
     executionId: string
   ): Promise<SovereignExecutionRecord> {
     const execution =
-      this.getMutable(
-        executionId
+      this.getMutable(executionId);
+
+    this.ensureNotTerminal(execution);
+
+    if (
+      execution.attempts >=
+      execution.maxAttempts
+    ) {
+      throw new Error(
+        `Execution maximum attempts reached: ${execution.id}`
       );
+    }
 
-    this.ensureNotTerminal(
-      execution
-    );
+    const now = Date.now();
 
-    const now =
-      Date.now();
+    execution.state = "RUNNING";
+    execution.attempts += 1;
+    execution.startedAt = now;
+    execution.lastHeartbeatAt = now;
+    execution.completedAt = undefined;
+    execution.result = undefined;
+    execution.error = undefined;
+    execution.updatedAt = now;
 
-    execution.state =
-      "RUNNING";
-
-    execution.attempts +=
-      1;
-
-    execution.startedAt =
-      now;
-
-    execution.lastHeartbeatAt =
-      now;
-
-    execution.error =
-      undefined;
-
-    execution.updatedAt =
-      now;
-
-    await this.persist(
-      execution
-    );
+    await this.persist(execution);
 
     await this.record(
       "AI_EXECUTION_STARTED",
       execution,
       {
-        attempts:
-          execution.attempts
+        attempts: execution.attempts
       }
     );
 
-    return this.clone(
-      execution
-    );
+    return this.clone(execution);
   }
 
   public async heartbeat(
     executionId: string
   ): Promise<void> {
     const execution =
-      this.getMutable(
-        executionId
-      );
+      this.getMutable(executionId);
 
     if (
-      execution.state !==
-      "RUNNING"
+      execution.state !== "RUNNING"
     ) {
       return;
     }
 
-    execution.lastHeartbeatAt =
-      Date.now();
+    const now = Date.now();
 
-    execution.updatedAt =
-      Date.now();
+    execution.lastHeartbeatAt = now;
+    execution.updatedAt = now;
 
-    await this.persist(
+    await this.persist(execution);
+
+    await this.record(
+      "AI_EXECUTION_HEARTBEAT",
       execution
     );
   }
@@ -341,26 +261,16 @@ export class SovereignAIExecutionSupervisor {
     executionId: string
   ): Promise<SovereignExecutionDecision> {
     const execution =
-      this.getMutable(
-        executionId
-      );
+      this.getMutable(executionId);
 
-    if (
-      this.isTerminal(
-        execution
-      )
-    ) {
+    if (this.isTerminal(execution)) {
       return execution.state ===
         "COMPLETED"
         ? "COMPLETE"
         : "FAIL";
     }
 
-    if (
-      this.hasTimedOut(
-        execution
-      )
-    ) {
+    if (this.hasTimedOut(execution)) {
       return await this.recover(
         execution,
         "Execution timeout exceeded."
@@ -368,9 +278,7 @@ export class SovereignAIExecutionSupervisor {
     }
 
     if (
-      this.heartbeatExpired(
-        execution
-      )
+      this.heartbeatExpired(execution)
     ) {
       return await this.recover(
         execution,
@@ -384,9 +292,7 @@ export class SovereignAIExecutionSupervisor {
     try {
       inspection =
         await this.adapter.inspect(
-          this.clone(
-            execution
-          )
+          this.clone(execution)
         );
     } catch (error) {
       return await this.recover(
@@ -397,18 +303,14 @@ export class SovereignAIExecutionSupervisor {
       );
     }
 
-    if (
-      !inspection.reachable
-    ) {
+    if (!inspection.reachable) {
       return await this.reassign(
         execution,
         "Execution target unreachable."
       );
     }
 
-    if (
-      inspection.failed
-    ) {
+    if (inspection.failed) {
       return await this.recover(
         execution,
         inspection.error ||
@@ -416,27 +318,18 @@ export class SovereignAIExecutionSupervisor {
       );
     }
 
-    if (
-      inspection.completed
-    ) {
+    if (inspection.completed) {
       return await this.complete(
         execution,
         inspection.result
       );
     }
 
-    if (
-      inspection.running
-    ) {
-      execution.state =
-        "RUNNING";
+    if (inspection.running) {
+      execution.state = "RUNNING";
+      execution.updatedAt = Date.now();
 
-      execution.updatedAt =
-        Date.now();
-
-      await this.persist(
-        execution
-      );
+      await this.persist(execution);
 
       return "CONTINUE";
     }
@@ -449,35 +342,20 @@ export class SovereignAIExecutionSupervisor {
     reason?: string
   ): Promise<SovereignExecutionRecord> {
     const execution =
-      this.getMutable(
-        executionId
-      );
+      this.getMutable(executionId);
 
-    if (
-      this.isTerminal(
-        execution
-      )
-    ) {
-      return this.clone(
-        execution
-      );
+    if (this.isTerminal(execution)) {
+      return this.clone(execution);
     }
 
-    execution.state =
-      "CANCELLED";
+    const now = Date.now();
 
-    execution.error =
-      reason;
+    execution.state = "CANCELLED";
+    execution.error = reason;
+    execution.completedAt = now;
+    execution.updatedAt = now;
 
-    execution.completedAt =
-      Date.now();
-
-    execution.updatedAt =
-      Date.now();
-
-    await this.persist(
-      execution
-    );
+    await this.persist(execution);
 
     await this.record(
       "AI_EXECUTION_CANCELLED",
@@ -487,18 +365,14 @@ export class SovereignAIExecutionSupervisor {
       }
     );
 
-    return this.clone(
-      execution
-    );
+    return this.clone(execution);
   }
 
   public get(
     executionId: string
   ): SovereignExecutionRecord {
     return this.clone(
-      this.getMutable(
-        executionId
-      )
+      this.getMutable(executionId)
     );
   }
 
@@ -508,38 +382,41 @@ export class SovereignAIExecutionSupervisor {
       ...this.executions.values()
     ].map(
       execution =>
-        this.clone(
-          execution
-        )
+        this.clone(execution)
     );
   }
 
   private async complete(
-    execution:
-      SovereignExecutionRecord,
+    execution: SovereignExecutionRecord,
     result: unknown
   ): Promise<SovereignExecutionDecision> {
-    execution.state =
-      "VERIFYING";
+    execution.state = "VERIFYING";
+    execution.updatedAt = Date.now();
 
-    execution.updatedAt =
-      Date.now();
+    await this.persist(execution);
 
-    await this.persist(
+    await this.record(
+      "AI_EXECUTION_VERIFYING",
       execution
     );
 
-    if (
-      this.adapter.verifyResult
-    ) {
-      const verified =
-        await this.adapter
-          .verifyResult(
-            this.clone(
-              execution
-            ),
+    if (this.adapter.verifyResult) {
+      let verified: boolean;
+
+      try {
+        verified =
+          await this.adapter.verifyResult(
+            this.clone(execution),
             result
           );
+      } catch (error) {
+        return await this.recover(
+          execution,
+          error instanceof Error
+            ? error.message
+            : String(error)
+        );
+      }
 
       if (!verified) {
         return await this.recover(
@@ -549,24 +426,15 @@ export class SovereignAIExecutionSupervisor {
       }
     }
 
-    execution.state =
-      "COMPLETED";
+    const now = Date.now();
 
-    execution.result =
-      result;
+    execution.state = "COMPLETED";
+    execution.result = result;
+    execution.error = undefined;
+    execution.completedAt = now;
+    execution.updatedAt = now;
 
-    execution.error =
-      undefined;
-
-    execution.completedAt =
-      Date.now();
-
-    execution.updatedAt =
-      Date.now();
-
-    await this.persist(
-      execution
-    );
+    await this.persist(execution);
 
     await this.record(
       "AI_EXECUTION_COMPLETED",
@@ -577,47 +445,51 @@ export class SovereignAIExecutionSupervisor {
   }
 
   private async recover(
-    execution:
-      SovereignExecutionRecord,
+    execution: SovereignExecutionRecord,
     error: string
   ): Promise<SovereignExecutionDecision> {
-    execution.error =
-      error;
+    execution.error = error;
+    execution.updatedAt = Date.now();
 
     if (
       execution.attempts <
       execution.maxAttempts
     ) {
-      if (
-        this.adapter.retry
-      ) {
-        execution.state =
-          "RETRYING";
+      if (this.adapter.retry) {
+        execution.state = "RETRYING";
 
-        const accepted =
-          await this.adapter.retry(
-            this.clone(
-              execution
-            )
-          );
+        await this.persist(execution);
 
-        if (accepted) {
-          execution.updatedAt =
-            Date.now();
+        try {
+          const accepted =
+            await this.adapter.retry(
+              this.clone(execution)
+            );
 
-          await this.persist(
-            execution
-          );
+          if (accepted) {
+            execution.startedAt =
+              undefined;
 
-          await this.record(
-            "AI_EXECUTION_RETRY_REQUESTED",
-            execution,
-            {
-              error
-            }
-          );
+            execution.lastHeartbeatAt =
+              undefined;
 
-          return "RETRY";
+            execution.updatedAt =
+              Date.now();
+
+            await this.persist(execution);
+
+            await this.record(
+              "AI_EXECUTION_RETRY_REQUESTED",
+              execution,
+              {
+                error
+              }
+            );
+
+            return "RETRY";
+          }
+        } catch {
+          // Continue to reassignment.
         }
       }
 
@@ -627,36 +499,41 @@ export class SovereignAIExecutionSupervisor {
       );
     }
 
-    if (
-      this.adapter.repair
-    ) {
-      execution.state =
-        "REPAIRING";
+    if (this.adapter.repair) {
+      execution.state = "REPAIRING";
 
-      const repaired =
-        await this.adapter.repair(
-          this.clone(
-            execution
-          )
-        );
+      await this.persist(execution);
 
-      if (repaired) {
-        execution.updatedAt =
-          Date.now();
+      try {
+        const repaired =
+          await this.adapter.repair(
+            this.clone(execution)
+          );
 
-        await this.persist(
-          execution
-        );
+        if (repaired) {
+          execution.startedAt =
+            undefined;
 
-        await this.record(
-          "AI_EXECUTION_REPAIR_REQUESTED",
-          execution,
-          {
-            error
-          }
-        );
+          execution.lastHeartbeatAt =
+            undefined;
 
-        return "REPAIR";
+          execution.updatedAt =
+            Date.now();
+
+          await this.persist(execution);
+
+          await this.record(
+            "AI_EXECUTION_REPAIR_REQUESTED",
+            execution,
+            {
+              error
+            }
+          );
+
+          return "REPAIR";
+        }
+      } catch {
+        // Fall through to failure.
       }
     }
 
@@ -667,28 +544,41 @@ export class SovereignAIExecutionSupervisor {
   }
 
   private async reassign(
-    execution:
-      SovereignExecutionRecord,
+    execution: SovereignExecutionRecord,
     reason: string
   ): Promise<SovereignExecutionDecision> {
-    if (
-      !this.adapter.reassign
-    ) {
+    if (!this.adapter.reassign) {
       return await this.fail(
         execution,
         reason
       );
     }
 
-    execution.state =
-      "REASSIGNING";
+    execution.state = "REASSIGNING";
+    execution.error = reason;
+    execution.updatedAt = Date.now();
 
-    const result =
-      await this.adapter.reassign(
-        this.clone(
-          execution
-        )
+    await this.persist(execution);
+
+    let result: {
+      accepted: boolean;
+      nodeId?: string;
+      workerId?: string;
+    };
+
+    try {
+      result =
+        await this.adapter.reassign(
+          this.clone(execution)
+        );
+    } catch (error) {
+      return await this.fail(
+        execution,
+        error instanceof Error
+          ? error.message
+          : String(error)
       );
+    }
 
     if (!result.accepted) {
       return await this.fail(
@@ -709,24 +599,21 @@ export class SovereignAIExecutionSupervisor {
     execution.lastHeartbeatAt =
       undefined;
 
+    execution.completedAt =
+      undefined;
+
     execution.updatedAt =
       Date.now();
 
-    await this.persist(
-      execution
-    );
+    await this.persist(execution);
 
     await this.record(
       "AI_EXECUTION_REASSIGNED",
       execution,
       {
         reason,
-
-        nodeId:
-          result.nodeId,
-
-        workerId:
-          result.workerId
+        nodeId: result.nodeId,
+        workerId: result.workerId
       }
     );
 
@@ -734,32 +621,23 @@ export class SovereignAIExecutionSupervisor {
   }
 
   private async fail(
-    execution:
-      SovereignExecutionRecord,
+    execution: SovereignExecutionRecord,
     error: string
   ): Promise<SovereignExecutionDecision> {
-    execution.state =
-      "FAILED";
+    const now = Date.now();
 
-    execution.error =
-      error;
+    execution.state = "FAILED";
+    execution.error = error;
+    execution.completedAt = now;
+    execution.updatedAt = now;
 
-    execution.completedAt =
-      Date.now();
-
-    execution.updatedAt =
-      Date.now();
-
-    await this.persist(
-      execution
-    );
+    await this.persist(execution);
 
     await this.record(
       "AI_EXECUTION_FAILED",
       execution,
       {
         error,
-
         attempts:
           execution.attempts
       }
@@ -769,13 +647,12 @@ export class SovereignAIExecutionSupervisor {
   }
 
   private hasTimedOut(
-    execution:
-      SovereignExecutionRecord
+    execution: SovereignExecutionRecord
   ): boolean {
     if (
-      execution.state !==
-        "RUNNING" ||
-      !execution.startedAt
+      execution.state !== "RUNNING" ||
+      execution.startedAt ===
+        undefined
     ) {
       return false;
     }
@@ -788,13 +665,12 @@ export class SovereignAIExecutionSupervisor {
   }
 
   private heartbeatExpired(
-    execution:
-      SovereignExecutionRecord
+    execution: SovereignExecutionRecord
   ): boolean {
     if (
-      execution.state !==
-        "RUNNING" ||
-      !execution.lastHeartbeatAt
+      execution.state !== "RUNNING" ||
+      execution.lastHeartbeatAt ===
+        undefined
     ) {
       return false;
     }
@@ -807,8 +683,7 @@ export class SovereignAIExecutionSupervisor {
   }
 
   private isTerminal(
-    execution:
-      SovereignExecutionRecord
+    execution: SovereignExecutionRecord
   ): boolean {
     return (
       execution.state ===
@@ -821,14 +696,9 @@ export class SovereignAIExecutionSupervisor {
   }
 
   private ensureNotTerminal(
-    execution:
-      SovereignExecutionRecord
+    execution: SovereignExecutionRecord
   ): void {
-    if (
-      this.isTerminal(
-        execution
-      )
-    ) {
+    if (this.isTerminal(execution)) {
       throw new Error(
         `Execution is terminal: ${execution.id}`
       );
@@ -845,4 +715,136 @@ export class SovereignAIExecutionSupervisor {
       heartbeatTimeoutMs: number;
     }
   ): void {
-    if (!input
+    if (!input.id.trim()) {
+      throw new Error(
+        "Execution id is required."
+      );
+    }
+
+    if (!input.taskId.trim()) {
+      throw new Error(
+        "Execution task id is required."
+      );
+    }
+
+    if (
+      !input.schedulerTaskId.trim()
+    ) {
+      throw new Error(
+        "Execution scheduler task id is required."
+      );
+    }
+
+    if (
+      !Number.isFinite(
+        input.maxAttempts
+      ) ||
+      input.maxAttempts < 1
+    ) {
+      throw new Error(
+        "Execution maxAttempts must be at least 1."
+      );
+    }
+
+    if (
+      !Number.isFinite(
+        input.timeoutMs
+      ) ||
+      input.timeoutMs < 1_000
+    ) {
+      throw new Error(
+        "Execution timeoutMs must be at least 1000."
+      );
+    }
+
+    if (
+      !Number.isFinite(
+        input.heartbeatTimeoutMs
+      ) ||
+      input.heartbeatTimeoutMs <
+        1_000
+    ) {
+      throw new Error(
+        "Execution heartbeatTimeoutMs must be at least 1000."
+      );
+    }
+  }
+
+  private getMutable(
+    executionId: string
+  ): SovereignExecutionRecord {
+    const id =
+      executionId.trim();
+
+    if (!id) {
+      throw new Error(
+        "Execution id is required."
+      );
+    }
+
+    const execution =
+      this.executions.get(id);
+
+    if (!execution) {
+      throw new Error(
+        `Execution not found: ${id}`
+      );
+    }
+
+    return execution;
+  }
+
+  private async persist(
+    execution: SovereignExecutionRecord
+  ): Promise<void> {
+    this.executions.set(
+      execution.id,
+      execution
+    );
+
+    if (this.adapter.persist) {
+      await this.adapter.persist(
+        this.clone(execution)
+      );
+    }
+  }
+
+  private async record(
+    type: string,
+    execution:
+      SovereignExecutionRecord,
+    data?: Record<string, unknown>
+  ): Promise<void> {
+    if (!this.adapter.recordEvent) {
+      return;
+    }
+
+    await this.adapter.recordEvent({
+      type,
+      executionId:
+        execution.id,
+      taskId:
+        execution.taskId,
+      timestamp:
+        Date.now(),
+      data
+    });
+  }
+
+  private clone(
+    execution: SovereignExecutionRecord
+  ): SovereignExecutionRecord {
+    return {
+      ...execution,
+
+      metadata:
+        execution.metadata
+          ? {
+              ...execution.metadata
+            }
+          : undefined
+    };
+  }
+}
+
+export default SovereignAIExecutionSupervisor;
