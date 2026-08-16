@@ -638,11 +638,15 @@ export class SovereignAIMajdKnowledge {
     return {
       platform: {
         id: "MAJD",
+
         sovereignPlatform:
           "SOVEREIGN-AI-PLATFORM",
+
         productType:
           "GLOBAL_DIGITAL_PLATFORM",
+
         aiOperated: true,
+
         ownerAuthority:
           "SUPREME"
       },
@@ -652,4 +656,228 @@ export class SovereignAIMajdKnowledge {
         "Allow OWNER intent to be transformed into working platform capabilities without requiring manual implementation of every feature.",
         "Create and operate original Majd games.",
         "Create original Majd social and media experiences.",
-        "Operate
+        "Operate Majd continuously through sovereign automation, monitoring, repair and controlled autonomous execution.",
+        "Protect OWNER authority, sovereign data, security, continuity and release quality.",
+        "Allow the platform to grow through new sovereign capabilities without replacing OWNER authority."
+      ],
+
+      rules:
+        rules
+          .sort(
+            (a, b) =>
+              b.priority -
+              a.priority
+          )
+          .map(
+            rule => ({
+              ...rule
+            })
+          ),
+
+      capabilities:
+        capabilities.map(
+          capability => ({
+            ...capability,
+
+            dependencies: [
+              ...capability
+                .dependencies
+            ]
+          })
+        ),
+
+      autonomousResponsibilities: [
+        "Interpret authorized OWNER requirements.",
+        "Create implementation plans.",
+        "Build platform components.",
+        "Generate and maintain source code.",
+        "Create and manage required data structures.",
+        "Test generated changes before release.",
+        "Detect failures and defects.",
+        "Repair recoverable defects autonomously.",
+        "Block unsafe or low-quality releases.",
+        "Deploy verified releases.",
+        "Verify live platform health after release.",
+        "Monitor runtime availability and performance.",
+        "Maintain operational continuity under delegated authority.",
+        "Protect platform security and access boundaries.",
+        "Maintain sovereign operational knowledge.",
+        "Learn from verified outcomes without overriding OWNER rules.",
+        "Create original Majd games and platform experiences.",
+        "Maintain Majd services across supported user devices.",
+        "Escalate decisions outside delegated authority to OWNER."
+      ],
+
+      acceptanceCriteria: [
+        "OWNER remains SUPREME.",
+        "SOVEREIGN-AI-PLATFORM remains the controlling AI platform.",
+        "Required Majd capabilities are discoverable.",
+        "Required Majd capabilities can be built autonomously when authorized.",
+        "Generated implementations are original Majd implementations.",
+        "Required authentication and authorization controls exist.",
+        "Required platform data remains under sovereign control.",
+        "Code is validated before release.",
+        "Tests pass before release.",
+        "Blocking defects prevent release.",
+        "Repair runs before an eligible failed release is retried.",
+        "Deployment is verified after release.",
+        "Games must be playable before being marked ready.",
+        "Platform services must be functional before being marked ready.",
+        "Live output must be visible and reachable before final readiness.",
+        "Operational failures are recorded and handled.",
+        "OWNER commands cannot be overridden by lower authority.",
+        "Routine authorized operations may continue under delegated sovereign authority.",
+        "Majd can be expanded through new capabilities without breaking existing sovereign governance."
+      ]
+    };
+  }
+
+  private rule(
+    id: string,
+    domain: MajdProductDomain,
+    authority: MajdKnowledgeAuthority,
+    title: string,
+    instruction: string,
+    immutable: boolean,
+    priority: number
+  ): MajdKnowledgeRule {
+    return {
+      id:
+        id.trim(),
+
+      domain,
+
+      authority,
+
+      title:
+        title.trim(),
+
+      instruction:
+        instruction
+          .trim()
+          .replace(
+            /\s+/g,
+            " "
+          ),
+
+      immutable,
+
+      priority:
+        this.normalizePriority(
+          priority
+        )
+    };
+  }
+
+  private capability(
+    id: string,
+    domain: MajdProductDomain,
+    name: string,
+    description: string,
+    required: boolean,
+    autonomousBuild: boolean,
+    dependencies: string[] = []
+  ): MajdProductCapability {
+    return {
+      id:
+        id.trim(),
+
+      domain,
+
+      name:
+        name.trim(),
+
+      description:
+        description
+          .trim()
+          .replace(
+            /\s+/g,
+            " "
+          ),
+
+      required,
+
+      autonomousBuild,
+
+      dependencies: [
+        ...new Set(
+          dependencies
+            .map(
+              dependency =>
+                dependency.trim()
+            )
+            .filter(Boolean)
+        )
+      ]
+    };
+  }
+
+  private normalizePriority(
+    priority: number
+  ): number {
+    if (
+      !Number.isFinite(
+        priority
+      )
+    ) {
+      return 0;
+    }
+
+    return Math.max(
+      0,
+      Math.min(
+        100,
+        Math.floor(
+          priority
+        )
+      )
+    );
+  }
+
+  private cloneKnowledge(
+    knowledge:
+      MajdOperationalKnowledge
+  ): MajdOperationalKnowledge {
+    return {
+      platform: {
+        ...knowledge.platform
+      },
+
+      mission: [
+        ...knowledge.mission
+      ],
+
+      rules:
+        knowledge.rules.map(
+          rule => ({
+            ...rule
+          })
+        ),
+
+      capabilities:
+        knowledge.capabilities
+          .map(
+            capability => ({
+              ...capability,
+
+              dependencies: [
+                ...capability
+                  .dependencies
+              ]
+            })
+          ),
+
+      autonomousResponsibilities: [
+        ...knowledge
+          .autonomousResponsibilities
+      ],
+
+      acceptanceCriteria: [
+        ...knowledge
+          .acceptanceCriteria
+      ]
+    };
+  }
+}
+
+export default SovereignAIMajdKnowledge;
