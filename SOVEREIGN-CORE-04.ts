@@ -8,23 +8,9 @@
  * Central intelligence coordination core for the
  * Sovereign AI Platform.
  *
- * Responsibilities:
- * - Receive sovereign requests.
- * - Maintain execution context.
- * - Coordinate planning.
- * - Coordinate agents and capabilities.
- * - Create and track jobs.
- * - Enforce policy/permission boundaries.
- * - Coordinate runtime execution.
- * - Process results and failures.
- * - Trigger diagnostics when required.
- * - Publish sovereign events.
- *
  * IMPORTANT:
- * The Core does NOT own supreme authority.
  * OWNER remains the highest authority.
  *
- * The Core cannot bypass:
  * Authority → Policy → Permission → Runtime → Execution
  *
  * Game Factory is NOT part of the Core.
@@ -75,52 +61,31 @@ export interface CoreRequest {
   id: string;
   actorId: string;
   actorType: string;
-
   type: string;
   description: string;
-
   input: Record<string, unknown>;
-
-  priority:
-    | "LOW"
-    | "NORMAL"
-    | "HIGH"
-    | "CRITICAL";
-
+  priority: "LOW" | "NORMAL" | "HIGH" | "CRITICAL";
   createdAt: string;
-
   metadata?: Record<string, unknown>;
 }
 
 export interface CoreContext {
   requestId: string;
-
   correlationId: string;
-
   ownerId: string;
-
   stewardId?: string;
-
   createdAt: string;
-
   updatedAt: string;
-
   data: Record<string, unknown>;
-
   decisions: CoreDecision[];
-
   events: string[];
-
   errors: string[];
 }
 
 export interface CorePlan {
   id: string;
-
   requestId: string;
-
   steps: CorePlanStep[];
-
   status:
     | "DRAFT"
     | "POLICY_CHECK"
@@ -129,123 +94,78 @@ export interface CorePlan {
     | "EXECUTING"
     | "COMPLETED"
     | "FAILED";
-
   createdAt: string;
 }
 
 export interface CorePlanStep {
   id: string;
-
   order: number;
-
   name: string;
-
   description: string;
-
   agentId?: string;
-
   capabilityId?: string;
-
   input: Record<string, unknown>;
-
   requiresApproval: boolean;
-
   policyChecked: boolean;
-
   status: CoreExecutionStatus;
 }
 
 export interface CoreJob {
   id: string;
-
   requestId: string;
-
   planId?: string;
-
   parentJobId?: string;
-
   agentId?: string;
-
   capabilityId?: string;
-
   status: CoreExecutionStatus;
-
   attempts: number;
-
   input: Record<string, unknown>;
-
   output?: Record<string, unknown>;
-
   error?: CoreError;
-
   createdAt: string;
-
   startedAt?: string;
-
   completedAt?: string;
 }
 
 export interface CoreError {
   code: string;
-
   message: string;
-
   component: string;
-
   retryable: boolean;
-
   severity:
     | "INFO"
     | "WARNING"
     | "ERROR"
     | "CRITICAL";
-
   occurredAt: string;
-
   details?: Record<string, unknown>;
 }
 
 export interface CoreEvent {
   id: string;
-
   type: string;
-
   source: string;
-
   timestamp: string;
-
   requestId?: string;
-
   jobId?: string;
-
   agentId?: string;
-
   capabilityId?: string;
-
   payload: Record<string, unknown>;
 }
 
 export interface CorePolicyDecision {
   allowed: boolean;
-
   requiresApproval: boolean;
-
   reason: string;
-
   permissions: string[];
-
   restrictions: string[];
 }
 
 export interface CoreExecutionResult {
   success: boolean;
-
   status: CoreExecutionStatus;
-
   output?: Record<string, unknown>;
-
   error?: CoreError;
-
   jobId: string;
 }
 
@@ -258,16 +178,16 @@ export interface CoreAuthority {
   getAuthority(): {
     ownerId: string;
     stewardId?: string;
-
     ownerAuthority: "SUPREME";
     stewardAuthority: "DELEGATED";
-
     delegationEnabled: boolean;
-
     delegationScope: string[];
   };
 
-  validateActor(actorId: string, actorType: string): boolean;
+  validateActor(
+    actorId: string,
+    actorType: string,
+  ): boolean;
 
   canDelegate(
     actorId: string,
@@ -364,66 +284,49 @@ export interface CoreDiagnostics {
 }
 
 /* ============================================================
- * 3. CORE CONFIGURATION
+ * 3. CONFIGURATION
  * ============================================================
  */
 
 export interface SovereignCoreConfig {
   ownerId: string;
-
   stewardId?: string;
-
   maxConcurrentJobs: number;
-
   maxRetryAttempts: number;
-
   requirePolicyCheck: boolean;
-
   requireVerification: boolean;
 }
 
 /* ============================================================
- * 4. CORE CLASS
+ * 4. SOVEREIGN CORE
  * ============================================================
  */
 
 export class SovereignCore {
   public readonly id = "SOVEREIGN-CORE-04";
-
   public readonly version = "1.0.0";
 
-  private status: CoreStatus =
-    "INITIALIZING";
+  private status: CoreStatus = "INITIALIZING";
 
   private readonly config: SovereignCoreConfig;
-
   private readonly authority: CoreAuthority;
-
   private readonly policy: CorePolicyEngine;
-
   private readonly planner: CorePlanner;
-
   private readonly runtime: CoreRuntime;
-
   private readonly agents: CoreAgentRegistry;
-
   private readonly capabilities: CoreCapabilityRegistry;
-
   private readonly memory: CoreMemory;
-
   private readonly events: CoreEventBus;
-
   private readonly diagnostics: CoreDiagnostics;
 
-  private activeJobs = new Map<
-    string,
-    CoreJob
-  >();
+  private readonly activeJobs =
+    new Map<string, CoreJob>();
 
-  private contexts = new Map<
-    string,
-    CoreContext
-  >();
+  private readonly contexts =
+    new Map<string, CoreContext>();
+
+  private readonly retryCounts =
+    new Map<string, number>();
 
   constructor(
     config: SovereignCoreConfig,
@@ -440,38 +343,20 @@ export class SovereignCore {
     },
   ) {
     this.config = config;
-
-    this.authority =
-      dependencies.authority;
-
-    this.policy =
-      dependencies.policy;
-
-    this.planner =
-      dependencies.planner;
-
-    this.runtime =
-      dependencies.runtime;
-
-    this.agents =
-      dependencies.agents;
-
-    this.capabilities =
-      dependencies.capabilities;
-
-    this.memory =
-      dependencies.memory;
-
-    this.events =
-      dependencies.events;
-
-    this.diagnostics =
-      dependencies.diagnostics;
+    this.authority = dependencies.authority;
+    this.policy = dependencies.policy;
+    this.planner = dependencies.planner;
+    this.runtime = dependencies.runtime;
+    this.agents = dependencies.agents;
+    this.capabilities = dependencies.capabilities;
+    this.memory = dependencies.memory;
+    this.events = dependencies.events;
+    this.diagnostics = dependencies.diagnostics;
   }
 
-  /* ========================================================
-   * 5. INITIALIZATION
-   * ========================================================
+  /* ==========================================================
+   * INITIALIZATION
+   * ==========================================================
    */
 
   public async initialize(): Promise<void> {
@@ -496,9 +381,9 @@ export class SovereignCore {
     );
   }
 
-  /* ========================================================
-   * 6. STATUS
-   * ========================================================
+  /* ==========================================================
+   * STATUS
+   * ==========================================================
    */
 
   public getStatus(): CoreStatus {
@@ -519,9 +404,9 @@ export class SovereignCore {
     };
   }
 
-  /* ========================================================
-   * 7. REQUEST ENTRY
-   * ========================================================
+  /* ==========================================================
+   * REQUEST ENTRY
+   * ==========================================================
    */
 
   public async processRequest(
@@ -586,8 +471,7 @@ export class SovereignCore {
         "policy.evaluated",
         {
           requestId: request.id,
-          allowed:
-            policyDecision.allowed,
+          allowed: policyDecision.allowed,
           requiresApproval:
             policyDecision.requiresApproval,
         },
@@ -601,14 +485,14 @@ export class SovereignCore {
         );
       }
 
-      if (
-        policyDecision.requiresApproval
-      ) {
+      if (policyDecision.requiresApproval) {
         return this.escalateRequest(
           request,
           "APPROVAL_REQUIRED",
         );
       }
+
+      context.decisions.push("PLAN");
 
       const plan =
         await this.planner.createPlan(
@@ -629,14 +513,14 @@ export class SovereignCore {
         },
       );
 
-      const policyValidatedPlan =
+      const valid =
         await this.validatePlan(
           plan,
           request,
           context,
         );
 
-      if (!policyValidatedPlan) {
+      if (!valid) {
         return this.rejectRequest(
           request,
           "PLAN_POLICY_REJECTED",
@@ -644,7 +528,7 @@ export class SovereignCore {
         );
       }
 
-      return this.executePlan(
+      return await this.executePlan(
         plan,
         request,
         context,
@@ -658,43 +542,36 @@ export class SovereignCore {
     }
   }
 
-  /* ========================================================
-   * 8. CONTEXT
-   * ========================================================
+  /* ==========================================================
+   * CONTEXT
+   * ==========================================================
    */
 
   private async createContext(
     request: CoreRequest,
   ): Promise<CoreContext> {
-    const now =
-      new Date().toISOString();
+    const now = new Date().toISOString();
+
+    const authority =
+      this.authority.getAuthority();
 
     const context: CoreContext = {
       requestId: request.id,
-
       correlationId:
         this.generateId("CORR"),
-
       ownerId:
+        authority.ownerId ||
         this.config.ownerId,
-
       stewardId:
+        authority.stewardId ??
         this.config.stewardId,
-
       createdAt: now,
-
       updatedAt: now,
-
       data: {
         request,
       },
-
-      decisions: [
-        "ACCEPT",
-      ],
-
+      decisions: ["ACCEPT"],
       events: [],
-
       errors: [],
     };
 
@@ -703,12 +580,17 @@ export class SovereignCore {
       context,
     );
 
+    await this.memory.save(
+      `context:${request.id}`,
+      context,
+    );
+
     return context;
   }
 
-  /* ========================================================
-   * 9. PLAN VALIDATION
-   * ========================================================
+  /* ==========================================================
+   * PLAN VALIDATION
+   * ==========================================================
    */
 
   private async validatePlan(
@@ -720,10 +602,15 @@ export class SovereignCore {
       return false;
     }
 
-    for (const step of plan.steps) {
-      if (
-        step.capabilityId
-      ) {
+    plan.status = "POLICY_CHECK";
+
+    const orderedSteps =
+      [...plan.steps].sort(
+        (a, b) => a.order - b.order,
+      );
+
+    for (const step of orderedSteps) {
+      if (step.capabilityId) {
         const valid =
           await this.capabilities
             .validateCapability(
@@ -741,6 +628,8 @@ export class SovereignCore {
             },
           );
 
+          plan.status = "REJECTED";
+
           return false;
         }
       }
@@ -751,13 +640,35 @@ export class SovereignCore {
             .findAgentForStep(step);
 
         if (agentId) {
-          step.agentId =
-            agentId;
+          step.agentId = agentId;
+        }
+      } else {
+        const agent =
+          await this.agents.getAgent(
+            step.agentId,
+          );
+
+        if (!agent) {
+          await this.publishEvent(
+            "agent.validation.failed",
+            {
+              requestId: request.id,
+              planId: plan.id,
+              agentId: step.agentId,
+            },
+          );
+
+          plan.status = "REJECTED";
+
+          return false;
         }
       }
 
       step.policyChecked = true;
+      step.status = "APPROVED";
     }
+
+    plan.status = "APPROVED";
 
     context.decisions.push(
       "EXECUTE",
@@ -766,12 +677,17 @@ export class SovereignCore {
     context.updatedAt =
       new Date().toISOString();
 
+    await this.memory.save(
+      `plan:${plan.id}`,
+      plan,
+    );
+
     return true;
   }
 
-  /* ========================================================
-   * 10. PLAN EXECUTION
-   * ========================================================
+  /* ==========================================================
+   * PLAN EXECUTION
+   * ==========================================================
    */
 
   private async executePlan(
@@ -792,9 +708,13 @@ export class SovereignCore {
     let finalOutput:
       Record<string, unknown> = {};
 
-    for (const step of plan.steps) {
-      step.status =
-        "EXECUTING";
+    const orderedSteps =
+      [...plan.steps].sort(
+        (a, b) => a.order - b.order,
+      );
+
+    for (const step of orderedSteps) {
+      step.status = "EXECUTING";
 
       const job =
         await this.createJob(
@@ -812,6 +732,11 @@ export class SovereignCore {
       if (!result.success) {
         plan.status = "FAILED";
 
+        await this.memory.save(
+          `plan:${plan.id}`,
+          plan,
+        );
+
         return this.handleJobFailure(
           result,
           request,
@@ -821,20 +746,24 @@ export class SovereignCore {
 
       finalOutput = {
         ...finalOutput,
-        ...(
-          result.output ?? {}
-        ),
+        ...(result.output ?? {}),
       };
 
-      step.status =
-        "COMPLETED";
+      step.status = "COMPLETED";
     }
 
-    plan.status =
-      "COMPLETED";
+    plan.status = "COMPLETED";
 
     context.decisions.push(
       "COMPLETE",
+    );
+
+    context.updatedAt =
+      new Date().toISOString();
+
+    await this.memory.save(
+      `plan:${plan.id}`,
+      plan,
     );
 
     await this.memory.save(
@@ -850,8 +779,7 @@ export class SovereignCore {
       },
     );
 
-    this.status =
-      "READY";
+    this.status = "READY";
 
     return {
       success: true,
@@ -861,9 +789,9 @@ export class SovereignCore {
     };
   }
 
-  /* ========================================================
-   * 11. JOB CREATION
-   * ========================================================
+  /* ==========================================================
+   * JOB CREATION
+   * ==========================================================
    */
 
   private async createJob(
@@ -873,27 +801,16 @@ export class SovereignCore {
   ): Promise<CoreJob> {
     const job: CoreJob = {
       id: this.generateId("JOB"),
-
-      requestId:
-        request.id,
-
-      planId:
-        plan.id,
-
-      agentId:
-        step.agentId,
-
+      requestId: request.id,
+      planId: plan.id,
+      agentId: step.agentId,
       capabilityId:
         step.capabilityId,
-
-      status:
-        "PENDING",
-
+      status: "PENDING",
       attempts: 0,
-
-      input:
-        step.input,
-
+      input: {
+        ...step.input,
+      },
       createdAt:
         new Date().toISOString(),
     };
@@ -903,48 +820,47 @@ export class SovereignCore {
       job,
     );
 
-    await this.runtime.createJob(
-      job,
+    const created =
+      await this.runtime.createJob(
+        job,
+      );
+
+    this.activeJobs.set(
+      created.id,
+      created,
     );
 
     await this.publishEvent(
       "job.created",
       {
-        requestId:
-          request.id,
-        jobId:
-          job.id,
-        planId:
-          plan.id,
+        requestId: request.id,
+        jobId: created.id,
+        planId: plan.id,
       },
     );
 
-    return job;
+    return created;
   }
 
-  /* ========================================================
-   * 12. JOB EXECUTION
-   * ========================================================
+  /* ==========================================================
+   * JOB EXECUTION
+   * ==========================================================
    */
 
   private async executeJob(
     job: CoreJob,
     context: CoreContext,
   ): Promise<CoreExecutionResult> {
-    job.status =
-      "EXECUTING";
-
+    job.status = "EXECUTING";
     job.startedAt =
       new Date().toISOString();
-
     job.attempts += 1;
 
     await this.publishEvent(
       "job.started",
       {
         jobId: job.id,
-        requestId:
-          job.requestId,
+        requestId: job.requestId,
       },
     );
 
@@ -956,22 +872,25 @@ export class SovereignCore {
         );
 
       if (result.success) {
-        job.status =
-          "VERIFYING";
+        if (
+          this.config.requireVerification
+        ) {
+          job.status = "VERIFYING";
 
-        await this.publishEvent(
-          "job.verifying",
-          {
-            jobId: job.id,
-          },
-        );
+          await this.publishEvent(
+            "job.verifying",
+            {
+              jobId: job.id,
+              requestId:
+                job.requestId,
+            },
+          );
+        }
 
         job.output =
           result.output;
 
-        job.status =
-          "COMPLETED";
-
+        job.status = "COMPLETED";
         job.completedAt =
           new Date().toISOString();
 
@@ -984,11 +903,21 @@ export class SovereignCore {
           },
         );
       } else {
-        job.status =
-          "FAILED";
+        job.status = "FAILED";
+        job.error = result.error;
+        job.completedAt =
+          new Date().toISOString();
 
-        job.error =
-          result.error;
+        await this.publishEvent(
+          "job.failed",
+          {
+            jobId: job.id,
+            requestId:
+              job.requestId,
+            error:
+              result.error,
+          },
+        );
       }
 
       this.activeJobs.delete(
@@ -1004,11 +933,10 @@ export class SovereignCore {
           "RUNTIME",
         );
 
-      job.status =
-        "FAILED";
-
-      job.error =
-        coreError;
+      job.status = "FAILED";
+      job.error = coreError;
+      job.completedAt =
+        new Date().toISOString();
 
       this.activeJobs.delete(
         job.id,
@@ -1020,8 +948,7 @@ export class SovereignCore {
           jobId: job.id,
           requestId:
             job.requestId,
-          error:
-            coreError,
+          error: coreError,
         },
       );
 
@@ -1034,9 +961,9 @@ export class SovereignCore {
     }
   }
 
-  /* ========================================================
-   * 13. FAILURE HANDLING
-   * ========================================================
+  /* ==========================================================
+   * FAILURE HANDLING
+   * ==========================================================
    */
 
   private async handleJobFailure(
@@ -1045,6 +972,7 @@ export class SovereignCore {
     context: CoreContext,
   ): Promise<CoreExecutionResult> {
     if (!result.error) {
+      this.status = "DEGRADED";
       return result;
     }
 
@@ -1052,251 +980,7 @@ export class SovereignCore {
       result.error.code,
     );
 
-    const diagnosis =
-      await this.diagnostics.diagnose(
-        result.error,
-        context,
-      );
+  context.updatedAt =
+  new Date().toISOString();
 
-    await this.publishEvent(
-      "diagnostics.completed",
-      {
-        requestId: request.id,
-        jobId: result.jobId,
-        diagnosis:
-          diagnosis.diagnosis,
-        recommendedAction:
-          diagnosis.recommendedAction,
-      },
-    );
-
-    if (
-      diagnosis.recommendedAction ===
-        "RETRY" &&
-      result.error.retryable
-    ) {
-      if (
-        this.canRetry(
-          result.error,
-        )
-      ) {
-        const retry =
-          await this.runtime.retryJob(
-            result.jobId,
-          );
-
-        if (retry.success) {
-          return retry;
-        }
-      }
-    }
-
-    if (
-      diagnosis.recommendedAction ===
-      "ESCALATE"
-    ) {
-      return this.escalateRequest(
-        request,
-        diagnosis.diagnosis,
-      );
-    }
-
-    if (
-      diagnosis.recommendedAction ===
-      "STOP"
-    ) {
-      this.status =
-        "DEGRADED";
-    }
-return (
-  error.retryable === true &&
-  this.co
-    return result;
-  }
-  private canRetry(
-    error: CoreError,
-  ): boolean {
-        return result;
-  }
-
-  private canRetry(
-    error: CoreError,
-  ): boolean {
-    return (
-      error.retryable === true &&
-      this.config.maxRetryAttempts > 0
-    );
-  }
-
-  /* ========================================================
-   * 14. REQUEST REJECTION
-   * ========================================================
-   */
-
-  private async rejectRequest(
-    request: CoreRequest,
-    code: string,
-    message: string,
-  ): Promise<CoreExecutionResult> {
-    const error: CoreError = {
-      code,
-      message,
-      component: this.id,
-      retryable: false,
-      severity: "ERROR",
-      occurredAt: new Date().toISOString(),
-    };
-
-    await this.publishEvent(
-      "request.rejected",
-      {
-        requestId: request.id,
-        error,
-      },
-    );
-
-    this.status = "READY";
-
-    return {
-      success: false,
-      status: "REJECTED",
-      error,
-      jobId: `REQUEST:${request.id}`,
-    };
-  }
-
-  /* ========================================================
-   * 15. REQUEST ESCALATION
-   * ========================================================
-   */
-
-  private async escalateRequest(
-    request: CoreRequest,
-    reason: string,
-  ): Promise<CoreExecutionResult> {
-    const error: CoreError = {
-      code: "ESCALATION_REQUIRED",
-      message: reason,
-      component: this.id,
-      retryable: false,
-      severity: "WARNING",
-      occurredAt: new Date().toISOString(),
-    };
-
-    await this.publishEvent(
-      "request.escalated",
-      {
-        requestId: request.id,
-        reason,
-      },
-    );
-
-    this.status = "READY";
-
-    return {
-      success: false,
-      status: "ESCALATED",
-      error,
-      jobId: `REQUEST:${request.id}`,
-    };
-  }
-
-  /* ========================================================
-   * 16. UNEXPECTED ERROR HANDLING
-   * ========================================================
-   */
-
-  private async handleUnexpectedError(
-    error: unknown,
-    request: CoreRequest,
-    context: CoreContext,
-  ): Promise<CoreExecutionResult> {
-    const coreError =
-      this.normalizeError(
-        error,
-        "CORE_UNEXPECTED_ERROR",
-        this.id,
-      );
-
-    context.errors.push(
-      coreError.code,
-    );
-
-    await this.publishEvent(
-      "core.error",
-      {
-        requestId: request.id,
-        error: coreError,
-      },
-    );
-
-    this.status = "DEGRADED";
-
-    return {
-      success: false,
-      status: "FAILED",
-      error: coreError,
-      jobId: `REQUEST:${request.id}`,
-    };
-  }
-
-  /* ========================================================
-   * 17. ERROR NORMALIZATION
-   * ========================================================
-   */
-
-  private normalizeError(
-    error: unknown,
-    code: string,
-    component: string,
-  ): CoreError {
-    return {
-      code,
-      message:
-        error instanceof Error
-          ? error.message
-          : String(error),
-      component,
-      retryable: true,
-      severity: "ERROR",
-      occurredAt:
-        new Date().toISOString(),
-    };
-  }
-
-  /* ========================================================
-   * 18. EVENT PUBLISHING
-   * ========================================================
-   */
-
-  private async publishEvent(
-    type: string,
-    payload: Record<string, unknown>,
-  ): Promise<void> {
-    const event: CoreEvent = {
-      id: this.generateId("EVENT"),
-      type,
-      source: this.id,
-      timestamp:
-        new Date().toISOString(),
-      payload,
-    };
-
-    await this.events.publish(
-      event,
-    );
-  }
-
-  /* ========================================================
-   * 19. ID GENERATION
-   * ========================================================
-   */
-
-  private generateId(
-    prefix: string,
-  ): string {
-    return `${prefix}-${Date.now()}-${Math.random()
-      .toString(36)
-      .slice(2, 10)}`;
-  }
-}
+  
