@@ -1,0 +1,15 @@
+{
+  "name": "sovereign-ai-platform",
+  "version": "1.0.0",
+  "private": true,
+  "type": "module",
+  "scripts": {
+    "check": "tsc --noEmit",
+    "runtime": "tsx SOVEREIGN-AI-FINAL-RUNTIME-222.ts"
+  },
+  "devDependencies": {
+    "tsx": "^4.20.0",
+    "typescript": "^5.9.0",
+    "@types/node": "^24.0.0"
+  }
+}
