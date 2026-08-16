@@ -1,0 +1,32 @@
+name: Sovereign Runtime Test
+
+on:
+  workflow_dispatch:
+  push:
+    paths:
+      - "SOVEREIGN-AI-FINAL-LAUNCHER-221.ts"
+      - "SOVEREIGN-AI-FINAL-RUNTIME-222.ts"
+      - "SOVEREIGN-AI-RUNTIME-TEST-223.ts"
+      - ".github/workflows/sovereign-runtime-test.yml"
+
+jobs:
+  runtime-test:
+    runs-on: ubuntu-latest
+
+    steps:
+      - name: Checkout repository
+        uses: actions/checkout@v4
+
+      - name: Setup Node.js
+        uses: actions/setup-node@v4
+        with:
+          node-version: "22"
+
+      - name: Install dependencies
+        run: npm install
+
+      - name: TypeScript check
+        run: npx tsc --noEmit
+
+      - name: Run Sovereign Runtime Test
+        run: npx tsx SOVEREIGN-AI-RUNTIME-TEST-223.ts
