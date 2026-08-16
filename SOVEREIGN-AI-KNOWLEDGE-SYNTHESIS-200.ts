@@ -304,7 +304,12 @@ export class SovereignAIKnowledgeSynthesis {
           )
         ],
 
-        conflicts,
+        conflicts:
+          conflicts.map(
+            conflict => ({
+              ...conflict
+            })
+          ),
 
         generatedAt:
           Date.now()
@@ -396,25 +401,7 @@ export class SovereignAIKnowledgeSynthesis {
       );
 
     if (
-      comparison.equivalent
-    ) {
-      const merged =
-        this.mergeEvidence(
-          strongest,
-          evidence
-        );
-
-      await this.persist(
-        merged
-      );
-
-      return {
-        entry: merged,
-        rejected: false
-      };
-    }
-
-    if (
+      comparison.equivalent ||
       comparison.compatible
     ) {
       const merged =
@@ -501,15 +488,16 @@ export class SovereignAIKnowledgeSynthesis {
       };
     }
 
-    const superseded: SovereignKnowledgeEntry = {
-      ...strongest,
+    const superseded:
+      SovereignKnowledgeEntry = {
+        ...strongest,
 
-      status:
-        "SUPERSEDED",
+        status:
+          "SUPERSEDED",
 
-      updatedAt:
-        Date.now()
-    };
+        updatedAt:
+          Date.now()
+      };
 
     await this.persist(
       superseded
@@ -826,7 +814,8 @@ export class SovereignAIKnowledgeSynthesis {
   }
 
   private authorityWeight(
-    authority: SovereignKnowledgeAuthority
+    authority:
+      SovereignKnowledgeAuthority
   ): number {
     switch (authority) {
       case "SUPREME":
@@ -883,3 +872,203 @@ export class SovereignAIKnowledgeSynthesis {
         ).sort()
     ) {
       ordered[key] =
+        this.stableValue(
+          object[key]
+        );
+    }
+
+    return JSON.stringify(
+      ordered
+    );
+  }
+
+  private normalize(
+    value: number
+  ): number {
+    if (
+      !Number.isFinite(
+        value
+      )
+    ) {
+      return 0;
+    }
+
+    return Math.max(
+      0,
+      Math.min(
+        1,
+        value
+      )
+    );
+  }
+
+  private uniqueEntries(
+    entries:
+      SovereignKnowledgeEntry[]
+  ): SovereignKnowledgeEntry[] {
+    const map =
+      new Map<
+        string,
+        SovereignKnowledgeEntry
+      >();
+
+    for (
+      const entry of entries
+    ) {
+      const existing =
+        map.get(
+          entry.id
+        );
+
+      if (
+        !existing ||
+        entry.updatedAt >
+          existing.updatedAt
+      ) {
+        map.set(
+          entry.id,
+          this.cloneEntry(
+            entry
+          )
+        );
+      }
+    }
+
+    return [
+      ...map.values()
+    ];
+  }
+
+  private async persist(
+    entry:
+      SovereignKnowledgeEntry
+  ): Promise<void> {
+    if (
+      this.adapter.persistKnowledge
+    ) {
+      await this.adapter
+        .persistKnowledge(
+          this.cloneEntry(
+            entry
+          )
+        );
+    }
+
+    await this.recordEvent(
+      "AI_KNOWLEDGE_PERSISTED",
+      entry.id,
+      undefined,
+      {
+        subject:
+          entry.subject,
+
+        authority:
+          entry.authority,
+
+        confidence:
+          entry.confidence,
+
+        status:
+          entry.status,
+
+        version:
+          entry.version
+      }
+    );
+  }
+
+  private async recordEvent(
+    type: string,
+    knowledgeId?: string,
+    evidenceId?: string,
+    data?: Record<string, unknown>
+  ): Promise<void> {
+    if (
+      !this.adapter.recordEvent
+    ) {
+      return;
+    }
+
+    await this.adapter
+      .recordEvent({
+        type,
+
+        knowledgeId,
+
+        evidenceId,
+
+        timestamp:
+          Date.now(),
+
+        data
+      });
+  }
+
+  private cloneEntry(
+    entry:
+      SovereignKnowledgeEntry
+  ): SovereignKnowledgeEntry {
+    return {
+      ...entry,
+
+      evidenceIds: [
+        ...entry.evidenceIds
+      ],
+
+      metadata:
+        entry.metadata
+          ? {
+              ...entry.metadata
+            }
+          : undefined
+    };
+  }
+
+  private cloneConflict(
+    conflict:
+      SovereignKnowledgeConflict
+  ): SovereignKnowledgeConflict {
+    return {
+      ...conflict
+    };
+  }
+
+  private cloneResult(
+    result:
+      SovereignKnowledgeSynthesisResult
+  ): SovereignKnowledgeSynthesisResult {
+    return {
+      ...result,
+
+      accepted:
+        result.accepted.map(
+          entry =>
+            this.cloneEntry(
+              entry
+            )
+        ),
+
+      rejectedEvidence: [
+        ...result.rejectedEvidence
+      ],
+
+      conflicts:
+        result.conflicts.map(
+          conflict =>
+            this.cloneConflict(
+              conflict
+            )
+        )
+    };
+  }
+
+  private createId(
+    prefix: string
+  ): string {
+    return `${prefix}-${Date.now()}-${Math.random()
+      .toString(36)
+      .slice(2, 10)}`;
+  }
+}
+
+export default SovereignAIKnowledgeSynthesis;
