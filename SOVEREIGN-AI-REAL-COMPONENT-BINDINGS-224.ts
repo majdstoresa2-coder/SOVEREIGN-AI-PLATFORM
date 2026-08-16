@@ -226,9 +226,7 @@ class SovereignLoadedModule {
     | (() => unknown | Promise<unknown>)
     | undefined {
     const direct =
-      this.module[
-        name
-      ];
+      this.module[name];
 
     if (
       typeof direct ===
@@ -242,9 +240,7 @@ class SovereignLoadedModule {
     }
 
     const defaultExport =
-      this.module[
-        "default"
-      ];
+      this.module["default"];
 
     if (
       defaultExport &&
@@ -254,10 +250,7 @@ class SovereignLoadedModule {
       const value =
         (
           defaultExport as
-            Record<
-              string,
-              unknown
-            >
+            Record<string, unknown>
         )[name];
 
       if (
@@ -400,161 +393,42 @@ function createBootstrapAdapter():
       };
     },
 
+    // ========================================================
+    // IMPORTANT:
+    // Bootstrap is already running from FINAL-RUNTIME-222.
+    //
+    // DO NOT create another SovereignAIFinalRuntime here.
+    // DO NOT call launch() here.
+    //
+    // Doing so creates:
+    //
+    // 221 -> 222 -> 220 -> 224 -> 222 -> 221 -> ...
+    //
+    // This stage only confirms that the bootstrap gate
+    // completed and allows FINAL-LAUNCHER-221 to continue to
+    // its own STARTING stage.
+    // ========================================================
+
     async startRuntime(
       request:
         SovereignBootstrapRequest
     ): Promise<SovereignRuntimeStartResult> {
-      try {
-        const runtime =
-          createSovereignRealRuntime(
-            request.ownerId,
-            request.projectId
-          );
+      return {
+        success:
+          true,
 
-        const runtimeRecord =
-          runtime as unknown as
-            Record<
-              string,
-              unknown
-            >;
+        runtimeId:
+          "SOVEREIGN-BOOTSTRAP-GATE-220",
 
-        const start =
-          runtimeRecord[
-            "start"
-          ];
+        state:
+          "READY",
 
-        const launch =
-          runtimeRecord[
-            "launch"
-          ];
+        liveTarget:
+          request.projectId,
 
-        const boot =
-          runtimeRecord[
-            "boot"
-          ];
-
-        let output:
-          unknown;
-
-        if (
-          typeof start ===
-          "function"
-        ) {
-          output =
-            await (
-              start as (
-                ...args:
-                  unknown[]
-              ) =>
-                Promise<unknown>
-            ).call(
-              runtime
-            );
-        } else if (
-          typeof launch ===
-          "function"
-        ) {
-          output =
-            await (
-              launch as (
-                ...args:
-                  unknown[]
-              ) =>
-                Promise<unknown>
-            ).call(
-              runtime
-            );
-        } else if (
-          typeof boot ===
-          "function"
-        ) {
-          output =
-            await (
-              boot as (
-                ...args:
-                  unknown[]
-              ) =>
-                Promise<unknown>
-            ).call(
-              runtime
-            );
-        }
-
-        const result =
-          output &&
-          typeof output ===
-            "object"
-            ? output as
-                Record<
-                  string,
-                  unknown
-                >
-            : {};
-
-        const failed =
-          result[
-            "success"
-          ] === false;
-
-        return {
-          success:
-            !failed,
-
-          runtimeId:
-            typeof result[
-              "runtimeId"
-            ] === "string"
-              ? result[
-                  "runtimeId"
-                ] as string
-              : "SOVEREIGN-FINAL-RUNTIME-222",
-
-          state:
-            typeof result[
-              "state"
-            ] === "string"
-              ? result[
-                  "state"
-                ] as string
-              : "RUNNING",
-
-          liveTarget:
-            typeof result[
-              "liveTarget"
-            ] === "string"
-              ? result[
-                  "liveTarget"
-                ] as string
-              : request.projectId,
-
-          errors:
-            failed
-              ? [
-                  typeof result[
-                    "error"
-                  ] === "string"
-                    ? result[
-                        "error"
-                      ] as string
-                    : "Sovereign runtime failed to start."
-                ]
-              : []
-        };
-      } catch (error) {
-        return {
-          success:
-            false,
-
-          state:
-            "FAILED",
-
-          errors: [
-            error instanceof Error
-              ? error.message
-              : String(error)
-          ]
-        };
-      }
+        errors:
+          []
+      };
     },
 
     async verifySystem(
