@@ -734,4 +734,317 @@ export class SovereignAIPlatformBuilder {
         return "Build Majd authentication, accounts, roles and permissions.";
 
       case "ADMIN":
-       
+          case "ADMIN":
+        return "Build the complete Majd administration and management system.";
+
+      case "GAMES":
+        return "Build and integrate the Majd games platform.";
+
+      case "SOCIAL":
+        return "Build Majd social and community capabilities.";
+
+      case "MEDIA":
+        return "Build Majd media and content capabilities.";
+
+      case "PAYMENTS":
+        return "Build Majd payments, wallet and transaction capabilities.";
+
+      case "AI_OPERATIONS":
+        return "Build sovereign AI operations and autonomous platform management.";
+
+      case "INFRASTRUCTURE":
+        return "Build and integrate sovereign platform infrastructure.";
+
+      default:
+        return `Build and integrate the ${component} platform component.`;
+    }
+  }
+
+  private validateComponentPlan(
+    plan: SovereignPlatformComponentPlan
+  ): void {
+    if (!plan.id.trim()) {
+      throw new Error(
+        "Platform component plan id is required."
+      );
+    }
+
+    if (!plan.objective.trim()) {
+      throw new Error(
+        `Platform component objective is required: ${plan.component}`
+      );
+    }
+
+    if (
+      plan.acceptanceCriteria.length === 0
+    ) {
+      throw new Error(
+        `Platform component acceptance criteria are required: ${plan.component}`
+      );
+    }
+  }
+
+  private validatePlan(
+    plan: SovereignPlatformPlan
+  ): void {
+    if (!plan.id.trim()) {
+      throw new Error(
+        "Platform plan id is required."
+      );
+    }
+
+    if (plan.components.length === 0) {
+      throw new Error(
+        "Platform plan requires at least one component."
+      );
+    }
+
+    const components =
+      new Set(
+        plan.components.map(
+          item => item.component
+        )
+      );
+
+    for (const item of plan.components) {
+      for (const dependency of item.dependencies) {
+        if (!components.has(dependency)) {
+          throw new Error(
+            `Platform component ${item.component} requires missing dependency ${dependency}.`
+          );
+        }
+      }
+    }
+  }
+
+  private normalizeComponentResult(
+    result: SovereignPlatformComponentResult,
+    component: SovereignPlatformComponent,
+    startedAt: number
+  ): SovereignPlatformComponentResult {
+    return {
+      ...result,
+      component,
+      artifacts: [
+        ...new Set(
+          result.artifacts || []
+        )
+      ],
+      startedAt:
+        result.startedAt ||
+        startedAt,
+      completedAt:
+        result.completedAt ||
+        Date.now()
+    };
+  }
+
+  private normalizeRequest(
+    input: SovereignPlatformBuildRequest
+  ): SovereignPlatformBuildRequest {
+    return {
+      ...input,
+
+      id: input.id.trim(),
+
+      projectId:
+        input.projectId.trim(),
+
+      commandId:
+        input.commandId.trim(),
+
+      objective:
+        input.objective
+          .trim()
+          .replace(/\s+/g, " "),
+
+      requestedComponents:
+        input.requestedComponents
+          ? [
+              ...new Set(
+                input.requestedComponents
+              )
+            ]
+          : undefined,
+
+      constraints: [
+        ...new Set(
+          (input.constraints || [])
+            .map(value => value.trim())
+            .filter(Boolean)
+        )
+      ],
+
+      autonomous:
+        input.autonomous !== false,
+
+      metadata:
+        input.metadata
+          ? { ...input.metadata }
+          : undefined
+    };
+  }
+
+  private validateRequest(
+    request: SovereignPlatformBuildRequest
+  ): void {
+    if (!request.id) {
+      throw new Error(
+        "Platform build request id is required."
+      );
+    }
+
+    if (!request.projectId) {
+      throw new Error(
+        "Platform project id is required."
+      );
+    }
+
+    if (!request.commandId) {
+      throw new Error(
+        "Platform command id is required."
+      );
+    }
+
+    if (!request.objective) {
+      throw new Error(
+        "Platform build objective is required."
+      );
+    }
+  }
+
+  private async transition(
+    result: SovereignPlatformBuildResult,
+    status: SovereignPlatformBuildStatus
+  ): Promise<void> {
+    result.status = status;
+
+    await this.persist(result);
+
+    await this.record(
+      `SOVEREIGN_PLATFORM_BUILDER_${status}`,
+      result
+    );
+  }
+
+  private async finish(
+    result: SovereignPlatformBuildResult
+  ): Promise<void> {
+    await this.persist(result);
+
+    await this.record(
+      `SOVEREIGN_PLATFORM_BUILDER_${result.status}`,
+      result,
+      {
+        repairAttempts:
+          result.repairAttempts,
+        error:
+          result.error,
+        completedAt:
+          result.completedAt
+      }
+    );
+  }
+
+  private async persist(
+    result: SovereignPlatformBuildResult
+  ): Promise<void> {
+    if (this.adapter.persistResult) {
+      await this.adapter.persistResult(
+        this.cloneResult(result)
+      );
+    }
+  }
+
+  private async record(
+    type: string,
+    result: SovereignPlatformBuildResult,
+    data?: Record<string, unknown>
+  ): Promise<void> {
+    if (this.adapter.recordEvent) {
+      await this.adapter.recordEvent({
+        type,
+        projectId: result.projectId,
+        requestId: result.requestId,
+        timestamp: Date.now(),
+        data
+      });
+    }
+  }
+
+  private cloneComponentPlan(
+    plan: SovereignPlatformComponentPlan
+  ): SovereignPlatformComponentPlan {
+    return {
+      ...plan,
+      dependencies: [
+        ...plan.dependencies
+      ],
+      acceptanceCriteria: [
+        ...plan.acceptanceCriteria
+      ]
+    };
+  }
+
+  private clonePlan(
+    plan: SovereignPlatformPlan
+  ): SovereignPlatformPlan {
+    return {
+      ...plan,
+      components:
+        plan.components.map(
+          item =>
+            this.cloneComponentPlan(item)
+        )
+    };
+  }
+
+  private cloneValidation(
+    validation: SovereignPlatformValidation
+  ): SovereignPlatformValidation {
+    return {
+      ...validation,
+      errors: [...validation.errors],
+      warnings: [...validation.warnings],
+      missingComponents: [
+        ...validation.missingComponents
+      ]
+    };
+  }
+
+  private cloneResult(
+    result: SovereignPlatformBuildResult
+  ): SovereignPlatformBuildResult {
+    return {
+      ...result,
+
+      plan:
+        result.plan
+          ? this.clonePlan(result.plan)
+          : undefined,
+
+      components:
+        result.components.map(
+          item => ({
+            ...item,
+            artifacts: [...item.artifacts]
+          })
+        ),
+
+      validation:
+        result.validation
+          ? this.cloneValidation(
+              result.validation
+            )
+          : undefined
+    };
+  }
+
+  private createId(
+    prefix: string
+  ): string {
+    return `${prefix}-${Date.now()}-${Math.random()
+      .toString(36)
+      .slice(2, 10)}`;
+  }
+      }
