@@ -12,6 +12,7 @@
     "types": ["node"]
   },
   "include": [
-    "*.ts"
+    "SOVEREIGN-AI-FINAL-LAUNCHER-221.ts",
+    "SOVEREIGN-AI-FINAL-RUNTIME-222.ts"
   ]
 }
