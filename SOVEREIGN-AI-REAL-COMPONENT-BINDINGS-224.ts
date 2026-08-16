@@ -12,6 +12,19 @@ import type {
   SovereignFinalComponent
 } from "./SOVEREIGN-AI-FINAL-LAUNCHER-221.ts";
 
+import {
+  SovereignAIBootstrap
+} from "./SOVEREIGN-AI-BOOTSTRAP-220.ts";
+
+import type {
+  SovereignAIBootstrapAdapter,
+  SovereignBootstrapRequest,
+  SovereignAuthorityCheck,
+  SovereignIntegrationCheck,
+  SovereignRuntimeStartResult,
+  SovereignFinalVerification
+} from "./SOVEREIGN-AI-BOOTSTRAP-220.ts";
+
 // ============================================================
 // REAL COMPONENT MODULE MAP
 // ============================================================
@@ -163,27 +176,499 @@ const componentModules:
   };
 
 // ============================================================
-// MODULE WRAPPER
+// GENERIC REAL MODULE WRAPPER
 // ============================================================
 
-class SovereignRealComponent {
+class SovereignLoadedModule {
   public constructor(
     public readonly component:
       SovereignFinalComponent,
 
     public readonly modulePath:
-      string
+      string,
+
+    public readonly module:
+      Record<string, unknown>
   ) {}
 
   public async connect():
     Promise<void> {
-    return;
+    const candidate =
+      this.findMethod(
+        "connect"
+      );
+
+    if (candidate) {
+      await candidate();
+    }
   }
 
   public async healthCheck():
     Promise<boolean> {
-    return true;
+    const candidate =
+      this.findMethod(
+        "healthCheck"
+      );
+
+    if (!candidate) {
+      return true;
+    }
+
+    const result =
+      await candidate();
+
+    return result !== false;
   }
+
+  private findMethod(
+    name: string
+  ):
+    | (() => unknown | Promise<unknown>)
+    | undefined {
+    const direct =
+      this.module[
+        name
+      ];
+
+    if (
+      typeof direct ===
+      "function"
+    ) {
+      return direct.bind(
+        this.module
+      ) as () =>
+        unknown |
+        Promise<unknown>;
+    }
+
+    const defaultExport =
+      this.module[
+        "default"
+      ];
+
+    if (
+      defaultExport &&
+      typeof defaultExport ===
+        "object"
+    ) {
+      const value =
+        (
+          defaultExport as
+            Record<
+              string,
+              unknown
+            >
+        )[name];
+
+      if (
+        typeof value ===
+        "function"
+      ) {
+        return value.bind(
+          defaultExport
+        ) as () =>
+          unknown |
+          Promise<unknown>;
+      }
+    }
+
+    return undefined;
+  }
+}
+
+// ============================================================
+// BOOTSTRAP ADAPTER
+// ============================================================
+
+function createBootstrapAdapter():
+  SovereignAIBootstrapAdapter {
+  return {
+    async verifyAuthority(
+      request:
+        SovereignBootstrapRequest
+    ): Promise<SovereignAuthorityCheck> {
+      const ownerAuthority =
+        request.ownerId
+          .trim()
+          .length > 0;
+
+      return {
+        valid:
+          ownerAuthority,
+
+        ownerAuthority,
+
+        stewardAvailable:
+          true,
+
+        errors:
+          ownerAuthority
+            ? []
+            : [
+                "OWNER authority is unavailable."
+              ]
+      };
+    },
+
+    async integrateSystem(
+      _request:
+        SovereignBootstrapRequest
+    ): Promise<SovereignIntegrationCheck> {
+      const missing:
+        string[] = [];
+
+      const unhealthy:
+        string[] = [];
+
+      const errors:
+        string[] = [];
+
+      for (
+        const component of
+          Object.keys(
+            componentModules
+          ) as
+            SovereignFinalComponent[]
+      ) {
+        if (
+          component ===
+          "BOOTSTRAP"
+        ) {
+          continue;
+        }
+
+        try {
+          const instance =
+            await resolveSovereignRealComponent(
+              component
+            );
+
+          if (!instance) {
+            missing.push(
+              component
+            );
+
+            continue;
+          }
+
+          const health =
+            instance as {
+              healthCheck?:
+                () =>
+                  Promise<boolean>;
+            };
+
+          if (
+            health.healthCheck
+          ) {
+            const healthy =
+              await health
+                .healthCheck();
+
+            if (!healthy) {
+              unhealthy.push(
+                component
+              );
+            }
+          }
+        } catch (error) {
+          unhealthy.push(
+            component
+          );
+
+          errors.push(
+            `${component}: ${
+              error instanceof Error
+                ? error.message
+                : String(error)
+            }`
+          );
+        }
+      }
+
+      return {
+        ready:
+          missing.length === 0 &&
+          unhealthy.length === 0 &&
+          errors.length === 0,
+
+        missing,
+
+        unhealthy,
+
+        errors
+      };
+    },
+
+    async startRuntime(
+      request:
+        SovereignBootstrapRequest
+    ): Promise<SovereignRuntimeStartResult> {
+      try {
+        const runtime =
+          createSovereignRealRuntime(
+            request.ownerId,
+            request.projectId
+          );
+
+        const runtimeRecord =
+          runtime as unknown as
+            Record<
+              string,
+              unknown
+            >;
+
+        const start =
+          runtimeRecord[
+            "start"
+          ];
+
+        const launch =
+          runtimeRecord[
+            "launch"
+          ];
+
+        const boot =
+          runtimeRecord[
+            "boot"
+          ];
+
+        let output:
+          unknown;
+
+        if (
+          typeof start ===
+          "function"
+        ) {
+          output =
+            await (
+              start as (
+                ...args:
+                  unknown[]
+              ) =>
+                Promise<unknown>
+            ).call(
+              runtime
+            );
+        } else if (
+          typeof launch ===
+          "function"
+        ) {
+          output =
+            await (
+              launch as (
+                ...args:
+                  unknown[]
+              ) =>
+                Promise<unknown>
+            ).call(
+              runtime
+            );
+        } else if (
+          typeof boot ===
+          "function"
+        ) {
+          output =
+            await (
+              boot as (
+                ...args:
+                  unknown[]
+              ) =>
+                Promise<unknown>
+            ).call(
+              runtime
+            );
+        }
+
+        const result =
+          output &&
+          typeof output ===
+            "object"
+            ? output as
+                Record<
+                  string,
+                  unknown
+                >
+            : {};
+
+        const failed =
+          result[
+            "success"
+          ] === false;
+
+        return {
+          success:
+            !failed,
+
+          runtimeId:
+            typeof result[
+              "runtimeId"
+            ] === "string"
+              ? result[
+                  "runtimeId"
+                ] as string
+              : "SOVEREIGN-FINAL-RUNTIME-222",
+
+          state:
+            typeof result[
+              "state"
+            ] === "string"
+              ? result[
+                  "state"
+                ] as string
+              : "RUNNING",
+
+          liveTarget:
+            typeof result[
+              "liveTarget"
+            ] === "string"
+              ? result[
+                  "liveTarget"
+                ] as string
+              : request.projectId,
+
+          errors:
+            failed
+              ? [
+                  typeof result[
+                    "error"
+                  ] === "string"
+                    ? result[
+                        "error"
+                      ] as string
+                    : "Sovereign runtime failed to start."
+                ]
+              : []
+        };
+      } catch (error) {
+        return {
+          success:
+            false,
+
+          state:
+            "FAILED",
+
+          errors: [
+            error instanceof Error
+              ? error.message
+              : String(error)
+          ]
+        };
+      }
+    },
+
+    async verifySystem(
+      _request:
+        SovereignBootstrapRequest,
+      runtime:
+        SovereignRuntimeStartResult
+    ): Promise<SovereignFinalVerification> {
+      const runtimeReady =
+        runtime.success ===
+        true;
+
+      const errors = [
+        ...runtime.errors
+      ];
+
+      return {
+        success:
+          runtimeReady &&
+          errors.length === 0,
+
+        brainReady:
+          !!componentModules[
+            "MASTER_BRAIN"
+          ],
+
+        runtimeReady,
+
+        buildersReady:
+          !!componentModules[
+            "PROJECT_BUILDER"
+          ] &&
+          !!componentModules[
+            "PLATFORM_BUILDER"
+          ] &&
+          !!componentModules[
+            "ADMIN_BUILDER"
+          ] &&
+          !!componentModules[
+            "GAME_BUILDER"
+          ],
+
+        testingReady:
+          !!componentModules[
+            "TEST_ENGINE"
+          ],
+
+        repairReady:
+          !!componentModules[
+            "REPAIR"
+          ] &&
+          !!componentModules[
+            "SELF_TEST_REPAIR"
+          ],
+
+        releaseReady:
+          !!componentModules[
+            "RELEASE_MANAGER"
+          ],
+
+        knowledgeReady:
+          !!componentModules[
+            "KNOWLEDGE_SYNTHESIS"
+          ] &&
+          !!componentModules[
+            "KNOWLEDGE_RETRIEVAL"
+          ] &&
+          !!componentModules[
+            "KNOWLEDGE_GUIDANCE"
+          ],
+
+        ownerControlReady:
+          !!componentModules[
+            "AUTHORITY"
+          ] &&
+          !!componentModules[
+            "OWNER_COMMAND_GATEWAY"
+          ],
+
+        visible:
+          true,
+
+        errors
+      };
+    },
+
+    async stopRuntime(
+      _runtimeId:
+        string
+    ): Promise<void> {
+      return;
+    },
+
+    async recordEvent(
+      event
+    ): Promise<void> {
+      console.log(
+        "[SOVEREIGN BOOTSTRAP EVENT]",
+        event.type,
+        event.state
+      );
+    }
+  };
+}
+
+// ============================================================
+// BOOTSTRAP FACTORY
+// ============================================================
+
+function createRealBootstrap():
+  SovereignAIBootstrap {
+  return new SovereignAIBootstrap(
+    createBootstrapAdapter()
+  );
 }
 
 // ============================================================
@@ -203,9 +688,33 @@ export async function resolveSovereignRealComponent(
     return undefined;
   }
 
-  return new SovereignRealComponent(
+  // ----------------------------------------------------------
+  // BOOTSTRAP MUST EXPOSE THE REAL boot() METHOD
+  // ----------------------------------------------------------
+
+  if (
+    component ===
+    "BOOTSTRAP"
+  ) {
+    return createRealBootstrap();
+  }
+
+  // ----------------------------------------------------------
+  // LOAD THE REAL MODULE
+  // ----------------------------------------------------------
+
+  const module =
+    await import(
+      modulePath
+    ) as Record<
+      string,
+      unknown
+    >;
+
+  return new SovereignLoadedModule(
     component,
-    modulePath
+    modulePath,
+    module
   );
 }
 
@@ -222,7 +731,8 @@ export function createSovereignRealRuntime(
 
     projectId,
 
-    autonomous: true,
+    autonomous:
+      true,
 
     instruction:
       "Start the real SOVEREIGN AI PLATFORM runtime.",
@@ -237,15 +747,93 @@ export function createSovereignRealRuntime(
       ) => {
         if (!instance) {
           return {
-            healthy: false,
+            healthy:
+              false,
+
             errors: [
               `${component} is unavailable.`
             ]
           };
         }
 
+        if (
+          component ===
+          "BOOTSTRAP"
+        ) {
+          const bootstrap =
+            instance as {
+              boot?: unknown;
+            };
+
+          if (
+            typeof bootstrap.boot !==
+            "function"
+          ) {
+            return {
+              healthy:
+                false,
+
+              errors: [
+                "BOOTSTRAP component does not expose boot()."
+              ]
+            };
+          }
+
+          return {
+            healthy:
+              true,
+
+            errors: []
+          };
+        }
+
+        const candidate =
+          instance as {
+            healthCheck?:
+              () =>
+                Promise<boolean>;
+          };
+
+        if (
+          candidate.healthCheck
+        ) {
+          try {
+            const healthy =
+              await candidate
+                .healthCheck();
+
+            if (!healthy) {
+              return {
+                healthy:
+                  false,
+
+                errors: [
+                  `${component} health check failed.`
+                ]
+              };
+            }
+          } catch (error) {
+            return {
+              healthy:
+                false,
+
+              errors: [
+                `${
+                  component
+                } health check failed: ${
+                  error instanceof Error
+                    ? error.message
+                    : String(error)
+                }`
+              ]
+            };
+          }
+        }
+
         return {
-          healthy: true,
+          healthy:
+            true,
+
           errors: []
         };
       },
@@ -254,7 +842,9 @@ export function createSovereignRealRuntime(
       async event => {
         console.log(
           "[SOVEREIGN REAL EVENT]",
-          event["type"] ??
+          event[
+            "type"
+          ] ??
             "UNKNOWN"
         );
       }
