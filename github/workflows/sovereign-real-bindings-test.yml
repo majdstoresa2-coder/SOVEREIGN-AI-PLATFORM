@@ -1,0 +1,28 @@
+name: Sovereign Real Bindings Test
+
+on:
+  workflow_dispatch:
+  push:
+    paths:
+      - "SOVEREIGN-AI-REAL-COMPONENT-BINDINGS-224.ts"
+      - "SOVEREIGN-AI-REAL-BINDINGS-TEST-225.ts"
+      - ".github/workflows/sovereign-real-bindings-test.yml"
+
+jobs:
+  real-bindings-test:
+    runs-on: ubuntu-latest
+
+    steps:
+      - name: Checkout repository
+        uses: actions/checkout@v4
+
+      - name: Setup Node.js
+        uses: actions/setup-node@v4
+        with:
+          node-version: "22"
+
+      - name: Install dependencies
+        run: npm install
+
+      - name: Run Sovereign Real Bindings Test
+        run: npx tsx SOVEREIGN-AI-REAL-BINDINGS-TEST-225.ts
