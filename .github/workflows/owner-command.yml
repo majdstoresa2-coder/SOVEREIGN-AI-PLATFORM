@@ -29,11 +29,10 @@ jobs:
       - name: Install dependencies
         run: npm install
 
-      - name: Verify Sovereign AI Platform
+      - name: Verify Sovereign Components
         run: |
           echo "=========================================="
-          echo "SOVEREIGN AI PLATFORM"
-          echo "OWNER COMMAND GATEWAY"
+          echo "VERIFY SOVEREIGN OWNER COMMAND PIPELINE"
           echo "=========================================="
 
           test -f SOVEREIGN-AI-OWNER-COMMAND-GATEWAY-208.ts
@@ -42,161 +41,277 @@ jobs:
           test -f SOVEREIGN-AI-FINAL-RUNTIME-222.ts
           test -f SOVEREIGN-AI-REAL-COMPONENT-BINDINGS-224.ts
 
-          echo "Sovereign runtime files verified."
+          echo "Required sovereign components verified."
 
       - name: Receive Owner Command
         env:
           OWNER_COMMAND: ${{ inputs.command }}
         run: |
-          echo "=========================================="
-          echo "OWNER COMMAND RECEIVED"
-          echo "=========================================="
-
           if [ -z "$OWNER_COMMAND" ]; then
-            echo "ERROR: Owner command is empty."
+            echo "ERROR: OWNER command is empty."
             exit 1
           fi
 
-          printf '%s' "$OWNER_COMMAND" > /tmp/sovereign-owner-command.txt
-
-          echo "Command accepted by sovereign execution gateway."
+          echo "OWNER command received."
 
       - name: Execute Sovereign Owner Command
         env:
           OWNER_COMMAND: ${{ inputs.command }}
         run: |
           cat > /tmp/sovereign-owner-command.ts <<'EOF'
-          import * as gatewayModule from "${{ github.workspace }}/SOVEREIGN-AI-OWNER-COMMAND-GATEWAY-208.ts";
+          import SovereignAIOwnerCommandGateway from "${{ github.workspace }}/SOVEREIGN-AI-OWNER-COMMAND-GATEWAY-208.ts";
+
+          import type {
+            SovereignMasterCommandEnvelope
+          } from "${{ github.workspace }}/SOVEREIGN-AI-OWNER-COMMAND-GATEWAY-208.ts";
+
+          import {
+            createSovereignRealRuntime
+          } from "${{ github.workspace }}/SOVEREIGN-AI-REAL-COMPONENT-BINDINGS-224.ts";
 
           async function main(): Promise<void> {
-            const command = process.env.OWNER_COMMAND?.trim();
+            const instruction =
+              process.env.OWNER_COMMAND?.trim();
 
-            if (!command) {
-              throw new Error("OWNER command is empty.");
-            }
-
-            const moduleRecord =
-              gatewayModule as Record<string, unknown>;
-
-            const candidates = [
-              "executeOwnerCommand",
-              "executeCommand",
-              "handleOwnerCommand",
-              "handleCommand",
-              "execute",
-              "run"
-            ];
-
-            let executed = false;
-            let result: unknown;
-
-            for (const name of candidates) {
-              const candidate = moduleRecord[name];
-
-              if (typeof candidate === "function") {
-                result = await (
-                  candidate as (
-                    ...args: unknown[]
-                  ) => unknown | Promise<unknown>
-                )(command);
-
-                executed = true;
-                break;
-              }
-            }
-
-            if (!executed) {
-              const defaultExport =
-                moduleRecord["default"];
-
-              if (typeof defaultExport === "function") {
-                try {
-                  result = await (
-                    defaultExport as (
-                      ...args: unknown[]
-                    ) => unknown | Promise<unknown>
-                  )(command);
-
-                  executed = true;
-                } catch {
-                  const instance =
-                    new (
-                      defaultExport as new (
-                        ...args: unknown[]
-                      ) => Record<string, unknown>
-                    )();
-
-                  for (const name of candidates) {
-                    const candidate =
-                      instance[name];
-
-                    if (typeof candidate === "function") {
-                      result = await (
-                        candidate as (
-                          ...args: unknown[]
-                        ) => unknown | Promise<unknown>
-                      ).call(instance, command);
-
-                      executed = true;
-                      break;
-                    }
-                  }
-                }
-              } else if (
-                defaultExport &&
-                typeof defaultExport === "object"
-              ) {
-                const instance =
-                  defaultExport as Record<string, unknown>;
-
-                for (const name of candidates) {
-                  const candidate =
-                    instance[name];
-
-                  if (typeof candidate === "function") {
-                    result = await (
-                      candidate as (
-                        ...args: unknown[]
-                      ) => unknown | Promise<unknown>
-                    ).call(instance, command);
-
-                    executed = true;
-                    break;
-                  }
-                }
-              }
-            }
-
-            if (!executed) {
+            if (!instruction) {
               throw new Error(
-                "OWNER_COMMAND_GATEWAY does not expose a supported command execution method."
+                "OWNER command is empty."
               );
             }
 
-            console.log("==========================================");
-            console.log("SOVEREIGN OWNER COMMAND EXECUTED");
-            console.log("==========================================");
+            const ownerId =
+              "OWNER-MAJD";
+
+            const projectId =
+              "SOVEREIGN-AI-PLATFORM";
 
             console.log(
-              typeof result === "string"
-                ? result
-                : JSON.stringify(result, null, 2)
+              "=========================================="
+            );
+
+            console.log(
+              "SOVEREIGN OWNER COMMAND"
+            );
+
+            console.log(
+              "OWNER AUTHORITY: SUPREME"
+            );
+
+            console.log(
+              "COMMAND:",
+              instruction
+            );
+
+            console.log(
+              "=========================================="
+            );
+
+            const runtime =
+              createSovereignRealRuntime(
+                ownerId,
+                projectId
+              );
+
+            const gateway =
+              new SovereignAIOwnerCommandGateway({
+                async validateAuthority(
+                  authority
+                ): Promise<boolean> {
+                  return authority ===
+                    "OWNER";
+                },
+
+                async dispatch(
+                  command:
+                    SovereignMasterCommandEnvelope
+                ): Promise<unknown> {
+                  console.log(
+                    "OWNER COMMAND DISPATCHED"
+                  );
+
+                  console.log(
+                    "COMMAND ID:",
+                    command.id
+                  );
+
+                  const result =
+                    await runtime.launch(
+                      command.instruction
+                    );
+
+                  console.log(
+                    "RUNTIME RESULT:"
+                  );
+
+                  console.log(
+                    JSON.stringify(
+                      result,
+                      null,
+                      2
+                    )
+                  );
+
+                  if (
+                    result.state ===
+                      "FAILED" ||
+                    result.state ===
+                      "BLOCKED"
+                  ) {
+                    throw new Error(
+                      `Sovereign runtime failed: state=${result.state}, error=${result.error ?? "unknown"}`
+                    );
+                  }
+
+                  if (
+                    !result.ready
+                  ) {
+                    throw new Error(
+                      `Sovereign runtime did not become ready. state=${result.state}`
+                    );
+                  }
+
+                  return result;
+                },
+
+                async recordEvent(
+                  event
+                ): Promise<void> {
+                  console.log(
+                    "[SOVEREIGN OWNER EVENT]",
+                    event.type,
+                    event.commandId
+                  );
+                }
+              });
+
+            const receipt =
+              await gateway.receive({
+                authority:
+                  "OWNER",
+
+                instruction,
+
+                projectId,
+
+                priority:
+                  100,
+
+                autonomous:
+                  true,
+
+                constraints: [
+                  "OWNER authority remains SUPREME.",
+                  "STEWARD remains delegated below OWNER.",
+                  "Preserve sovereign core architecture.",
+                  "Do not delete established sovereign files."
+                ],
+
+                metadata: {
+                  source:
+                    "SOVEREIGN-OWNER-COMMAND-WORKFLOW",
+
+                  executionMode:
+                    "AUTONOMOUS-PRODUCTION"
+                }
+              });
+
+            console.log(
+              "=========================================="
+            );
+
+            console.log(
+              "OWNER COMMAND RECEIPT"
+            );
+
+            console.log(
+              JSON.stringify(
+                receipt,
+                null,
+                2
+              )
+            );
+
+            console.log(
+              "=========================================="
+            );
+
+            if (
+              !receipt.accepted
+            ) {
+              throw new Error(
+                `OWNER command rejected: ${receipt.reason}`
+              );
+            }
+
+            if (
+              receipt.status ===
+                "FAILED" ||
+              receipt.status ===
+                "REJECTED"
+            ) {
+              throw new Error(
+                `OWNER command failed: ${receipt.reason}`
+              );
+            }
+
+            if (
+              receipt.status !==
+              "DISPATCHED"
+            ) {
+              throw new Error(
+                `OWNER command was not dispatched. status=${receipt.status}`
+              );
+            }
+
+            console.log(
+              "SOVEREIGN OWNER COMMAND: SUCCESS"
+            );
+
+            console.log(
+              "OWNER AUTHORITY: SUPREME"
+            );
+
+            console.log(
+              "GATEWAY: DISPATCHED"
+            );
+
+            console.log(
+              "RUNTIME: READY"
             );
           }
 
-          main().catch((error: unknown) => {
-            console.error("==========================================");
-            console.error("SOVEREIGN OWNER COMMAND FAILED");
-            console.error("==========================================");
+          main().catch(
+            (
+              error: unknown
+            ) => {
+              console.error(
+                "=========================================="
+              );
 
-            if (error instanceof Error) {
-              console.error(error.stack ?? error.message);
-            } else {
-              console.error(error);
+              console.error(
+                "SOVEREIGN OWNER COMMAND FAILED"
+              );
+
+              console.error(
+                "=========================================="
+              );
+
+              if (
+                error instanceof Error
+              ) {
+                console.error(
+                  error.stack ??
+                    error.message
+                );
+              } else {
+                console.error(
+                  String(error)
+                );
+              }
+
+              process.exit(1);
             }
-
-            process.exit(1);
-          });
+          );
           EOF
 
           npx tsx /tmp/sovereign-owner-command.ts
@@ -207,5 +322,5 @@ jobs:
           echo "=========================================="
           echo "SOVEREIGN OWNER COMMAND: SUCCESS"
           echo "OWNER AUTHORITY: SUPREME"
-          echo "EXECUTION: COMPLETED"
+          echo "EXECUTION PIPELINE: COMPLETED"
           echo "=========================================="
