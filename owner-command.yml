@@ -1,0 +1,194 @@
+name: Sovereign Owner Command
+
+on:
+  workflow_dispatch:
+    inputs:
+      command:
+        description: "OWNER COMMAND"
+        required: true
+        type: string
+
+permissions:
+  contents: write
+  actions: read
+
+jobs:
+  owner-command:
+    name: Execute Owner Command
+    runs-on: ubuntu-latest
+
+    steps:
+      - name: Checkout Sovereign AI Platform
+        uses: actions/checkout@v4
+
+      - name: Setup Node.js
+        uses: actions/setup-node@v4
+        with:
+          node-version: 24
+
+      - name: Install dependencies
+        run: npm install
+
+      - name: Verify Sovereign AI Platform
+        run: |
+          echo "=========================================="
+          echo "SOVEREIGN AI PLATFORM"
+          echo "OWNER COMMAND GATEWAY"
+          echo "=========================================="
+
+          test -f SOVEREIGN-AI-OWNER-COMMAND-GATEWAY-208.ts
+          test -f SOVEREIGN-AI-AUTONOMOUS-RUNTIME-215.ts
+          test -f SOVEREIGN-AI-BOOTSTRAP-220.ts
+          test -f SOVEREIGN-AI-FINAL-RUNTIME-222.ts
+          test -f SOVEREIGN-AI-REAL-COMPONENT-BINDINGS-224.ts
+
+          echo "Sovereign runtime files verified."
+
+      - name: Receive Owner Command
+        env:
+          OWNER_COMMAND: ${{ inputs.command }}
+        run: |
+          echo "=========================================="
+          echo "OWNER COMMAND RECEIVED"
+          echo "=========================================="
+
+          if [ -z "$OWNER_COMMAND" ]; then
+            echo "ERROR: Owner command is empty."
+            exit 1
+          fi
+
+          printf '%s' "$OWNER_COMMAND" > /tmp/sovereign-owner-command.txt
+
+          echo "Command accepted by sovereign execution gateway."
+
+      - name: Execute Sovereign Owner Command
+        env:
+          OWNER_COMMAND: ${{ inputs.command }}
+        run: |
+          cat > /tmp/sovereign-owner-command.ts <<'EOF'
+          import * as gatewayModule from "${{ github.workspace }}/SOVEREIGN-AI-OWNER-COMMAND-GATEWAY-208.ts";
+
+          const command = process.env.OWNER_COMMAND?.trim();
+
+          if (!command) {
+            throw new Error("OWNER command is empty.");
+          }
+
+          const moduleRecord =
+            gatewayModule as Record<string, unknown>;
+
+          const candidates = [
+            "executeOwnerCommand",
+            "executeCommand",
+            "handleOwnerCommand",
+            "handleCommand",
+            "execute",
+            "run"
+          ];
+
+          let executed = false;
+          let result: unknown;
+
+          for (const name of candidates) {
+            const candidate = moduleRecord[name];
+
+            if (typeof candidate === "function") {
+              result = await (
+                candidate as (
+                  ...args: unknown[]
+                ) => unknown | Promise<unknown>
+              )(command);
+
+              executed = true;
+              break;
+            }
+          }
+
+          if (!executed) {
+            const defaultExport =
+              moduleRecord["default"];
+
+            if (typeof defaultExport === "function") {
+              try {
+                result = await (
+                  defaultExport as (
+                    ...args: unknown[]
+                  ) => unknown | Promise<unknown>
+                )(command);
+
+                executed = true;
+              } catch {
+                const instance =
+                  new (
+                    defaultExport as new (
+                      ...args: unknown[]
+                    ) => Record<string, unknown>
+                  )();
+
+                for (const name of candidates) {
+                  const candidate =
+                    instance[name];
+
+                  if (typeof candidate === "function") {
+                    result = await (
+                      candidate as (
+                        ...args: unknown[]
+                      ) => unknown | Promise<unknown>
+                    ).call(instance, command);
+
+                    executed = true;
+                    break;
+                  }
+                }
+              }
+            } else if (
+              defaultExport &&
+              typeof defaultExport === "object"
+            ) {
+              const instance =
+                defaultExport as Record<string, unknown>;
+
+              for (const name of candidates) {
+                const candidate =
+                  instance[name];
+
+                if (typeof candidate === "function") {
+                  result = await (
+                    candidate as (
+                      ...args: unknown[]
+                    ) => unknown | Promise<unknown>
+                  ).call(instance, command);
+
+                  executed = true;
+                  break;
+                }
+              }
+            }
+          }
+
+          if (!executed) {
+            throw new Error(
+              "OWNER_COMMAND_GATEWAY does not expose a supported command execution method."
+            );
+          }
+
+          console.log("==========================================");
+          console.log("SOVEREIGN OWNER COMMAND EXECUTED");
+          console.log("==========================================");
+          console.log(
+            typeof result === "string"
+              ? result
+              : JSON.stringify(result, null, 2)
+          );
+          EOF
+
+          npx tsx /tmp/sovereign-owner-command.ts
+
+      - name: Owner Command Complete
+        if: success()
+        run: |
+          echo "=========================================="
+          echo "SOVEREIGN OWNER COMMAND: SUCCESS"
+          echo "OWNER AUTHORITY: SUPREME"
+          echo "EXECUTION: COMPLETED"
+          echo "=========================================="
