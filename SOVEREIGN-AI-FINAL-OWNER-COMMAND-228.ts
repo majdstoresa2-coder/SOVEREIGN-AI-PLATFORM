@@ -49,9 +49,19 @@ export interface SovereignOwnerCommandResult {
 
   instruction: string;
 
+  priority: number;
+
+  autonomous: boolean;
+
   accepted: boolean;
 
   executed: boolean;
+
+  modulesLoaded: boolean;
+
+  instancesVerified: boolean;
+
+  runtimeStarted: boolean;
 
   ready: boolean;
 
@@ -127,11 +137,34 @@ export class SovereignAIFinalOwnerCommand {
       );
 
       console.log(
+        `PRIORITY: ${command.priority}`
+      );
+
+      console.log(
+        `AUTONOMOUS: ${command.autonomous}`
+      );
+
+      console.log(
         "============================================"
       );
 
       // ======================================================
-      // CREATE FINAL LIVE ENTRY
+      // STEP 1 — OWNER COMMAND ACCEPTANCE
+      // ======================================================
+
+      const accepted =
+        command.ownerId.length > 0 &&
+        command.id.length > 0 &&
+        command.instruction.length > 0;
+
+      if (!accepted) {
+        throw new Error(
+          "OWNER command failed sovereign acceptance."
+        );
+      }
+
+      // ======================================================
+      // STEP 2 — CREATE FINAL LIVE ENTRY
       // ======================================================
 
       const liveEntry =
@@ -147,17 +180,97 @@ export class SovereignAIFinalOwnerCommand {
         });
 
       // ======================================================
-      // EXECUTE THROUGH FINAL LIVE RUNTIME
+      // STEP 3 — EXECUTE FINAL LIVE RUNTIME
       // ======================================================
 
       const runtime =
         await liveEntry.start();
 
-      const success =
-        runtime.success &&
-        runtime.ready &&
+      // ======================================================
+      // STEP 4 — VERIFY COMPLETE LIVE CHAIN
+      // ======================================================
+
+      const modulesLoaded =
+        runtime.modulesLoaded ===
+        true;
+
+      const instancesVerified =
+        runtime.instancesVerified ===
+        true;
+
+      const runtimeStarted =
+        runtime.runtimeStarted ===
+        true;
+
+      const ready =
+        runtime.ready ===
+        true;
+
+      const running =
         runtime.state ===
-          "RUNNING";
+        "RUNNING";
+
+      const success =
+        runtime.success ===
+          true &&
+        modulesLoaded &&
+        instancesVerified &&
+        runtimeStarted &&
+        ready &&
+        running;
+
+      const errors: string[] = [
+        ...runtime.errors
+      ];
+
+      if (
+        !modulesLoaded
+      ) {
+        errors.push(
+          "Real sovereign modules are not fully loaded."
+        );
+      }
+
+      if (
+        !instancesVerified
+      ) {
+        errors.push(
+          "Required sovereign component instances are not fully verified."
+        );
+      }
+
+      if (
+        !runtimeStarted
+      ) {
+        errors.push(
+          "Sovereign final runtime did not start."
+        );
+      }
+
+      if (
+        !ready
+      ) {
+        errors.push(
+          "Sovereign final runtime is not ready."
+        );
+      }
+
+      if (
+        !running
+      ) {
+        errors.push(
+          `Sovereign final runtime state is ${runtime.state}.`
+        );
+      }
+
+      const uniqueErrors =
+        [
+          ...new Set(
+            errors.filter(
+              Boolean
+            )
+          )
+        ];
 
       const result:
         SovereignOwnerCommandResult = {
@@ -175,13 +288,26 @@ export class SovereignAIFinalOwnerCommand {
           instruction:
             command.instruction,
 
-          accepted: true,
+          priority:
+            command.priority ??
+            100,
+
+          autonomous:
+            command.autonomous !==
+            false,
+
+          accepted,
 
           executed:
             success,
 
-          ready:
-            runtime.ready,
+          modulesLoaded,
+
+          instancesVerified,
+
+          runtimeStarted,
+
+          ready,
 
           state:
             runtime.state,
@@ -191,9 +317,8 @@ export class SovereignAIFinalOwnerCommand {
 
           runtime,
 
-          errors: [
-            ...runtime.errors
-          ],
+          errors:
+            uniqueErrors,
 
           startedAt,
 
@@ -208,7 +333,35 @@ export class SovereignAIFinalOwnerCommand {
 
       if (!success) {
         console.error(
+          "============================================"
+        );
+
+        console.error(
           "SOVEREIGN OWNER COMMAND: BLOCKED"
+        );
+
+        console.error(
+          `MODULES LOADED: ${modulesLoaded}`
+        );
+
+        console.error(
+          `INSTANCES VERIFIED: ${instancesVerified}`
+        );
+
+        console.error(
+          `RUNTIME STARTED: ${runtimeStarted}`
+        );
+
+        console.error(
+          `READY: ${ready}`
+        );
+
+        console.error(
+          `STATE: ${runtime.state}`
+        );
+
+        console.error(
+          "============================================"
         );
 
         return this.cloneResult(
@@ -225,11 +378,27 @@ export class SovereignAIFinalOwnerCommand {
       );
 
       console.log(
+        "OWNER AUTHORITY: SUPREME"
+      );
+
+      console.log(
         "ACCEPTED: true"
       );
 
       console.log(
         "EXECUTED: true"
+      );
+
+      console.log(
+        "MODULES LOADED: true"
+      );
+
+      console.log(
+        "INSTANCES VERIFIED: true"
+      );
+
+      console.log(
+        "RUNTIME STARTED: true"
       );
 
       console.log(
@@ -250,7 +419,8 @@ export class SovereignAIFinalOwnerCommand {
     } catch (error) {
       const result:
         SovereignOwnerCommandResult = {
-          success: false,
+          success:
+            false,
 
           commandId:
             command.id,
@@ -264,11 +434,31 @@ export class SovereignAIFinalOwnerCommand {
           instruction:
             command.instruction,
 
-          accepted: true,
+          priority:
+            command.priority ??
+            100,
 
-          executed: false,
+          autonomous:
+            command.autonomous !==
+            false,
 
-          ready: false,
+          accepted:
+            true,
+
+          executed:
+            false,
+
+          modulesLoaded:
+            false,
+
+          instancesVerified:
+            false,
+
+          runtimeStarted:
+            false,
+
+          ready:
+            false,
 
           state:
             "FAILED",
@@ -289,6 +479,16 @@ export class SovereignAIFinalOwnerCommand {
         this.cloneResult(
           result
         );
+
+      console.error(
+        "SOVEREIGN OWNER COMMAND: FAILED"
+      );
+
+      console.error(
+        result.errors.join(
+          "; "
+        )
+      );
 
       return this.cloneResult(
         result
@@ -329,13 +529,16 @@ export class SovereignAIFinalOwnerCommand {
       ...command,
 
       id:
-        command.id.trim(),
+        command.id
+          .trim(),
 
       ownerId:
-        command.ownerId.trim(),
+        command.ownerId
+          .trim(),
 
       projectId:
-        command.projectId.trim(),
+        command.projectId
+          .trim(),
 
       instruction:
         command.instruction
@@ -374,27 +577,59 @@ export class SovereignAIFinalOwnerCommand {
     command:
       SovereignOwnerCommand
   ): void {
-    if (!command.id) {
+    if (
+      !command.id
+    ) {
       throw new Error(
         "OWNER command id is required."
       );
     }
 
-    if (!command.ownerId) {
+    if (
+      !command.ownerId
+    ) {
       throw new Error(
         "OWNER id is required."
       );
     }
 
-    if (!command.projectId) {
+    if (
+      !command.projectId
+    ) {
       throw new Error(
         "Project id is required."
       );
     }
 
-    if (!command.instruction) {
+    if (
+      !command.instruction
+    ) {
       throw new Error(
         "OWNER instruction is required."
+      );
+    }
+
+    if (
+      typeof command.priority !==
+        "number" ||
+      !Number.isFinite(
+        command.priority
+      ) ||
+      command.priority < 0
+    ) {
+      throw new Error(
+        "OWNER command priority must be a valid non-negative number."
+      );
+    }
+
+    if (
+      command.autonomous !==
+        true &&
+      command.autonomous !==
+        false
+    ) {
+      throw new Error(
+        "OWNER command autonomous mode must be boolean."
       );
     }
   }
