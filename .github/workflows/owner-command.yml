@@ -68,62 +68,86 @@ jobs:
           cat > /tmp/sovereign-owner-command.ts <<'EOF'
           import * as gatewayModule from "${{ github.workspace }}/SOVEREIGN-AI-OWNER-COMMAND-GATEWAY-208.ts";
 
-          const command = process.env.OWNER_COMMAND?.trim();
+          async function main(): Promise<void> {
+            const command = process.env.OWNER_COMMAND?.trim();
 
-          if (!command) {
-            throw new Error("OWNER command is empty.");
-          }
-
-          const moduleRecord =
-            gatewayModule as Record<string, unknown>;
-
-          const candidates = [
-            "executeOwnerCommand",
-            "executeCommand",
-            "handleOwnerCommand",
-            "handleCommand",
-            "execute",
-            "run"
-          ];
-
-          let executed = false;
-          let result: unknown;
-
-          for (const name of candidates) {
-            const candidate = moduleRecord[name];
-
-            if (typeof candidate === "function") {
-              result = await (
-                candidate as (
-                  ...args: unknown[]
-                ) => unknown | Promise<unknown>
-              )(command);
-
-              executed = true;
-              break;
+            if (!command) {
+              throw new Error("OWNER command is empty.");
             }
-          }
 
-          if (!executed) {
-            const defaultExport =
-              moduleRecord["default"];
+            const moduleRecord =
+              gatewayModule as Record<string, unknown>;
 
-            if (typeof defaultExport === "function") {
-              try {
+            const candidates = [
+              "executeOwnerCommand",
+              "executeCommand",
+              "handleOwnerCommand",
+              "handleCommand",
+              "execute",
+              "run"
+            ];
+
+            let executed = false;
+            let result: unknown;
+
+            for (const name of candidates) {
+              const candidate = moduleRecord[name];
+
+              if (typeof candidate === "function") {
                 result = await (
-                  defaultExport as (
+                  candidate as (
                     ...args: unknown[]
                   ) => unknown | Promise<unknown>
                 )(command);
 
                 executed = true;
-              } catch {
-                const instance =
-                  new (
-                    defaultExport as new (
+                break;
+              }
+            }
+
+            if (!executed) {
+              const defaultExport =
+                moduleRecord["default"];
+
+              if (typeof defaultExport === "function") {
+                try {
+                  result = await (
+                    defaultExport as (
                       ...args: unknown[]
-                    ) => Record<string, unknown>
-                  )();
+                    ) => unknown | Promise<unknown>
+                  )(command);
+
+                  executed = true;
+                } catch {
+                  const instance =
+                    new (
+                      defaultExport as new (
+                        ...args: unknown[]
+                      ) => Record<string, unknown>
+                    )();
+
+                  for (const name of candidates) {
+                    const candidate =
+                      instance[name];
+
+                    if (typeof candidate === "function") {
+                      result = await (
+                        candidate as (
+                          ...args: unknown[]
+                        ) => unknown | Promise<unknown>
+                      ).call(instance, command);
+
+                      executed = true;
+                      break;
+                    }
+                  }
+                }
+              } else if (
+                defaultExport &&
+                typeof defaultExport === "object"
+              ) {
+                const instance =
+                  defaultExport as Record<string, unknown>;
 
                 for (const name of candidates) {
                   const candidate =
@@ -141,45 +165,38 @@ jobs:
                   }
                 }
               }
-            } else if (
-              defaultExport &&
-              typeof defaultExport === "object"
-            ) {
-              const instance =
-                defaultExport as Record<string, unknown>;
-
-              for (const name of candidates) {
-                const candidate =
-                  instance[name];
-
-                if (typeof candidate === "function") {
-                  result = await (
-                    candidate as (
-                      ...args: unknown[]
-                    ) => unknown | Promise<unknown>
-                  ).call(instance, command);
-
-                  executed = true;
-                  break;
-                }
-              }
             }
-          }
 
-          if (!executed) {
-            throw new Error(
-              "OWNER_COMMAND_GATEWAY does not expose a supported command execution method."
+            if (!executed) {
+              throw new Error(
+                "OWNER_COMMAND_GATEWAY does not expose a supported command execution method."
+              );
+            }
+
+            console.log("==========================================");
+            console.log("SOVEREIGN OWNER COMMAND EXECUTED");
+            console.log("==========================================");
+
+            console.log(
+              typeof result === "string"
+                ? result
+                : JSON.stringify(result, null, 2)
             );
           }
 
-          console.log("==========================================");
-          console.log("SOVEREIGN OWNER COMMAND EXECUTED");
-          console.log("==========================================");
-          console.log(
-            typeof result === "string"
-              ? result
-              : JSON.stringify(result, null, 2)
-          );
+          main().catch((error: unknown) => {
+            console.error("==========================================");
+            console.error("SOVEREIGN OWNER COMMAND FAILED");
+            console.error("==========================================");
+
+            if (error instanceof Error) {
+              console.error(error.stack ?? error.message);
+            } else {
+              console.error(error);
+            }
+
+            process.exit(1);
+          });
           EOF
 
           npx tsx /tmp/sovereign-owner-command.ts
