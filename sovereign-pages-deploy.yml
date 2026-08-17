@@ -1,0 +1,56 @@
+name: Sovereign AI Pages Deploy
+
+on:
+  push:
+    branches:
+      - main
+  workflow_dispatch:
+
+permissions:
+  contents: read
+  pages: write
+  id-token: write
+
+concurrency:
+  group: pages
+  cancel-in-progress: false
+
+jobs:
+  deploy:
+    name: Deploy Sovereign AI to GitHub Pages
+    runs-on: ubuntu-latest
+
+    environment:
+      name: github-pages
+      url: ${{ steps.deployment.outputs.page_url }}
+
+    steps:
+      - name: Checkout Sovereign AI Platform
+        uses: actions/checkout@v4
+
+      - name: Configure GitHub Pages
+        uses: actions/configure-pages@v5
+
+      - name: Verify Web Entry
+        shell: bash
+        run: |
+          echo "SOVEREIGN AI PLATFORM - WEB DEPLOYMENT"
+          echo "Repository checked out successfully."
+
+          if [ ! -f "index.html" ]; then
+            echo "ERROR: index.html was not found in repository root."
+            echo "GitHub Pages requires a web entry file to display the platform."
+            exit 1
+          fi
+
+          echo "index.html found."
+          echo "Web deployment package is ready."
+
+      - name: Upload Sovereign AI Pages
+        uses: actions/upload-pages-artifact@v3
+        with:
+          path: .
+
+      - name: Deploy Sovereign AI Pages
+        id: deployment
+        uses: actions/deploy-pages@v4
