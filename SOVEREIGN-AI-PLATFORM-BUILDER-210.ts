@@ -33,97 +33,61 @@ export type SovereignPlatformBuildStatus =
 
 export interface SovereignPlatformBuildRequest {
   id: string;
-
   projectId: string;
-
   commandId: string;
-
   objective: string;
-
   requestedComponents?: SovereignPlatformComponent[];
-
   constraints: string[];
-
   autonomous: boolean;
-
   createdAt: number;
-
   metadata?: Record<string, unknown>;
 }
 
 export interface SovereignPlatformComponentPlan {
   id: string;
-
   component: SovereignPlatformComponent;
-
   required: boolean;
-
   objective: string;
-
   dependencies: SovereignPlatformComponent[];
-
   acceptanceCriteria: string[];
 }
 
 export interface SovereignPlatformPlan {
   id: string;
-
   projectId: string;
-
   objective: string;
-
   components: SovereignPlatformComponentPlan[];
-
   createdAt: number;
 }
 
 export interface SovereignPlatformComponentResult {
   component: SovereignPlatformComponent;
-
   success: boolean;
-
   artifacts: string[];
-
   output?: unknown;
-
   error?: string;
-
   startedAt: number;
-
   completedAt: number;
 }
 
 export interface SovereignPlatformValidation {
   success: boolean;
-
   errors: string[];
-
   warnings: string[];
-
   missingComponents: SovereignPlatformComponent[];
 }
 
 export interface SovereignPlatformBuildResult {
   id: string;
-
   requestId: string;
-
   projectId: string;
-
   status: SovereignPlatformBuildStatus;
-
   plan?: SovereignPlatformPlan;
-
   components: SovereignPlatformComponentResult[];
-
   validation?: SovereignPlatformValidation;
-
   repairAttempts: number;
-
   error?: string;
-
   startedAt: number;
-
   completedAt?: number;
 }
 
@@ -173,13 +137,9 @@ export interface SovereignAIPlatformBuilderAdapter {
 
   recordEvent?(event: {
     type: string;
-
     projectId: string;
-
     requestId: string;
-
     timestamp: number;
-
     data?: Record<string, unknown>;
   }): Promise<void>;
 }
@@ -204,7 +164,6 @@ export class SovereignAIPlatformBuilder {
   constructor(
     private readonly adapter:
       SovereignAIPlatformBuilderAdapter,
-
     private readonly maximumRepairAttempts = 3
   ) {}
 
@@ -221,18 +180,12 @@ export class SovereignAIPlatformBuilder {
         id: this.createId(
           "platform-build"
         ),
-
         requestId: request.id,
-
         projectId:
           request.projectId,
-
         status: "CREATED",
-
         components: [],
-
         repairAttempts: 0,
-
         startedAt: Date.now()
       };
 
@@ -243,10 +196,9 @@ export class SovereignAIPlatformBuilder {
       );
 
       const existingPlatform =
-        await this.adapter
-          .inspectPlatform(
-            request
-          );
+        await this.adapter.inspectPlatform(
+          request
+        );
 
       await this.transition(
         result,
@@ -262,17 +214,14 @@ export class SovereignAIPlatformBuilder {
         SovereignPlatformComponentPlan[] =
           [];
 
-      for (
-        const component of requested
-      ) {
+      for (const component of requested) {
         const plan =
           this.adapter.planComponent
-            ? await this.adapter
-                .planComponent(
-                  request,
-                  component,
-                  existingPlatform
-                )
+            ? await this.adapter.planComponent(
+                request,
+                component,
+                existingPlatform
+              )
             : this.defaultPlan(
                 component
               );
@@ -293,28 +242,20 @@ export class SovereignAIPlatformBuilder {
           id: this.createId(
             "platform-plan"
           ),
-
           projectId:
             request.projectId,
-
           objective:
             request.objective,
-
           components:
             componentPlans,
-
           createdAt:
             Date.now()
         };
 
-      this.validatePlan(
-        plan
-      );
+      this.validatePlan(plan);
 
       result.plan =
-        this.clonePlan(
-          plan
-        );
+        this.clonePlan(plan);
 
       await this.transition(
         result,
@@ -329,32 +270,26 @@ export class SovereignAIPlatformBuilder {
       const remaining =
         [...plan.components];
 
-      while (
-        remaining.length > 0
-      ) {
+      while (remaining.length > 0) {
         const executable =
           remaining.filter(
             item =>
-              item.dependencies
-                .every(
-                  dependency =>
-                    completed.has(
-                      dependency
-                    )
-                )
+              item.dependencies.every(
+                dependency =>
+                  completed.has(
+                    dependency
+                  )
+              )
           );
 
-        if (
-          executable.length === 0
-        ) {
+        if (executable.length === 0) {
           throw new Error(
             "Platform component dependency cycle or unresolved dependency detected."
           );
         }
 
         for (
-          const componentPlan of
-            executable
+          const componentPlan of executable
         ) {
           const startedAt =
             Date.now();
@@ -365,22 +300,20 @@ export class SovereignAIPlatformBuilder {
                 .buildComponent(
                   request,
                   componentPlan,
-                  result.components
-                    .map(
-                      item => ({
-                        ...item,
-                        artifacts: [
-                          ...item.artifacts
-                        ]
-                      })
-                    )
+                  result.components.map(
+                    item => ({
+                      ...item,
+                      artifacts: [
+                        ...item.artifacts
+                      ]
+                    })
+                  )
                 );
 
             const normalized =
               this.normalizeComponentResult(
                 componentResult,
-                componentPlan
-                  .component,
+                componentPlan.component,
                 startedAt
               );
 
@@ -398,37 +331,26 @@ export class SovereignAIPlatformBuilder {
               );
             }
 
-            if (
-              normalized.success
-            ) {
+            if (normalized.success) {
               completed.add(
-                componentPlan
-                  .component
+                componentPlan.component
               );
             }
           } catch (error) {
-            if (
-              componentPlan.required
-            ) {
+            if (componentPlan.required) {
               throw error;
             }
 
             result.components.push({
               component:
-                componentPlan
-                  .component,
-
+                componentPlan.component,
               success: false,
-
               artifacts: [],
-
               error:
                 error instanceof Error
                   ? error.message
                   : String(error),
-
               startedAt,
-
               completedAt:
                 Date.now()
             });
@@ -483,8 +405,7 @@ export class SovereignAIPlatformBuilder {
           this.maximumRepairAttempts &&
         this.adapter.repairPlatform
       ) {
-        result.repairAttempts +=
-          1;
+        result.repairAttempts += 1;
 
         await this.transition(
           result,
@@ -517,9 +438,7 @@ export class SovereignAIPlatformBuilder {
           );
       }
 
-      if (
-        !validation.success
-      ) {
+      if (!validation.success) {
         throw new Error(
           `Platform validation failed: ${validation.errors.join(
             "; "
@@ -528,8 +447,7 @@ export class SovereignAIPlatformBuilder {
       }
 
       if (
-        validation
-          .missingComponents
+        validation.missingComponents
           .length > 0
       ) {
         throw new Error(
@@ -544,10 +462,7 @@ export class SovereignAIPlatformBuilder {
         "VERIFYING"
       );
 
-      if (
-        this.adapter
-          .verifyPlatform
-      ) {
+      if (this.adapter.verifyPlatform) {
         const verified =
           await this.adapter
             .verifyPlatform(
@@ -564,22 +479,17 @@ export class SovereignAIPlatformBuilder {
         }
       }
 
-      result.status =
-        "READY";
-
+      result.status = "READY";
       result.completedAt =
         Date.now();
 
-      await this.finish(
-        result
-      );
+      await this.finish(result);
 
       return this.cloneResult(
         result
       );
     } catch (error) {
-      result.status =
-        "FAILED";
+      result.status = "FAILED";
 
       result.error =
         error instanceof Error
@@ -589,9 +499,7 @@ export class SovereignAIPlatformBuilder {
       result.completedAt =
         Date.now();
 
-      await this.finish(
-        result
-      );
+      await this.finish(result);
 
       return this.cloneResult(
         result
@@ -610,9 +518,7 @@ export class SovereignAIPlatformBuilder {
         : this.defaultComponents;
 
     return [
-      ...new Set(
-        components
-      )
+      ...new Set(components)
     ];
   }
 
@@ -624,21 +530,16 @@ export class SovereignAIPlatformBuilder {
       id: this.createId(
         `component-${component.toLowerCase()}`
       ),
-
       component,
-
       required: true,
-
       objective:
         this.componentObjective(
           component
         ),
-
       dependencies:
         this.dependenciesFor(
           component
         ),
-
       acceptanceCriteria: [
         `${component} implementation exists.`,
         `${component} is integrated with required dependencies.`,
@@ -734,7 +635,6 @@ export class SovereignAIPlatformBuilder {
         return "Build Majd authentication, accounts, roles and permissions.";
 
       case "ADMIN":
-          case "ADMIN":
         return "Build the complete Majd administration and management system.";
 
       case "GAMES":
@@ -761,7 +661,8 @@ export class SovereignAIPlatformBuilder {
   }
 
   private validateComponentPlan(
-    plan: SovereignPlatformComponentPlan
+    plan:
+      SovereignPlatformComponentPlan
   ): void {
     if (!plan.id.trim()) {
       throw new Error(
@@ -776,7 +677,8 @@ export class SovereignAIPlatformBuilder {
     }
 
     if (
-      plan.acceptanceCriteria.length === 0
+      plan.acceptanceCriteria.length ===
+      0
     ) {
       throw new Error(
         `Platform component acceptance criteria are required: ${plan.component}`
@@ -807,8 +709,15 @@ export class SovereignAIPlatformBuilder {
       );
 
     for (const item of plan.components) {
-      for (const dependency of item.dependencies) {
-        if (!components.has(dependency)) {
+      for (
+        const dependency of
+          item.dependencies
+      ) {
+        if (
+          !components.has(
+            dependency
+          )
+        ) {
           throw new Error(
             `Platform component ${item.component} requires missing dependency ${dependency}.`
           );
@@ -818,8 +727,10 @@ export class SovereignAIPlatformBuilder {
   }
 
   private normalizeComponentResult(
-    result: SovereignPlatformComponentResult,
-    component: SovereignPlatformComponent,
+    result:
+      SovereignPlatformComponentResult,
+    component:
+      SovereignPlatformComponent,
     startedAt: number
   ): SovereignPlatformComponentResult {
     return {
@@ -840,7 +751,8 @@ export class SovereignAIPlatformBuilder {
   }
 
   private normalizeRequest(
-    input: SovereignPlatformBuildRequest
+    input:
+      SovereignPlatformBuildRequest
   ): SovereignPlatformBuildRequest {
     return {
       ...input,
@@ -870,7 +782,9 @@ export class SovereignAIPlatformBuilder {
       constraints: [
         ...new Set(
           (input.constraints || [])
-            .map(value => value.trim())
+            .map(
+              value => value.trim()
+            )
             .filter(Boolean)
         )
       ],
@@ -880,13 +794,16 @@ export class SovereignAIPlatformBuilder {
 
       metadata:
         input.metadata
-          ? { ...input.metadata }
+          ? {
+              ...input.metadata
+            }
           : undefined
     };
   }
 
   private validateRequest(
-    request: SovereignPlatformBuildRequest
+    request:
+      SovereignPlatformBuildRequest
   ): void {
     if (!request.id) {
       throw new Error(
@@ -914,8 +831,10 @@ export class SovereignAIPlatformBuilder {
   }
 
   private async transition(
-    result: SovereignPlatformBuildResult,
-    status: SovereignPlatformBuildStatus
+    result:
+      SovereignPlatformBuildResult,
+    status:
+      SovereignPlatformBuildStatus
   ): Promise<void> {
     result.status = status;
 
@@ -928,7 +847,8 @@ export class SovereignAIPlatformBuilder {
   }
 
   private async finish(
-    result: SovereignPlatformBuildResult
+    result:
+      SovereignPlatformBuildResult
   ): Promise<void> {
     await this.persist(result);
 
@@ -947,39 +867,55 @@ export class SovereignAIPlatformBuilder {
   }
 
   private async persist(
-    result: SovereignPlatformBuildResult
+    result:
+      SovereignPlatformBuildResult
   ): Promise<void> {
-    if (this.adapter.persistResult) {
-      await this.adapter.persistResult(
-        this.cloneResult(result)
-      );
+    if (
+      this.adapter.persistResult
+    ) {
+      await this.adapter
+        .persistResult(
+          this.cloneResult(
+            result
+          )
+        );
     }
   }
 
   private async record(
     type: string,
-    result: SovereignPlatformBuildResult,
+    result:
+      SovereignPlatformBuildResult,
     data?: Record<string, unknown>
   ): Promise<void> {
-    if (this.adapter.recordEvent) {
-      await this.adapter.recordEvent({
-        type,
-        projectId: result.projectId,
-        requestId: result.requestId,
-        timestamp: Date.now(),
-        data
-      });
+    if (
+      this.adapter.recordEvent
+    ) {
+      await this.adapter
+        .recordEvent({
+          type,
+          projectId:
+            result.projectId,
+          requestId:
+            result.requestId,
+          timestamp:
+            Date.now(),
+          data
+        });
     }
   }
 
   private cloneComponentPlan(
-    plan: SovereignPlatformComponentPlan
+    plan:
+      SovereignPlatformComponentPlan
   ): SovereignPlatformComponentPlan {
     return {
       ...plan,
+
       dependencies: [
         ...plan.dependencies
       ],
+
       acceptanceCriteria: [
         ...plan.acceptanceCriteria
       ]
@@ -987,48 +923,76 @@ export class SovereignAIPlatformBuilder {
   }
 
   private clonePlan(
-    plan: SovereignPlatformPlan
+    plan:
+      SovereignPlatformPlan
   ): SovereignPlatformPlan {
     return {
       ...plan,
+
       components:
         plan.components.map(
           item =>
-            this.cloneComponentPlan(item)
+            this.cloneComponentPlan(
+              item
+            )
         )
     };
   }
 
   private cloneValidation(
-    validation: SovereignPlatformValidation
+    validation:
+      SovereignPlatformValidation
   ): SovereignPlatformValidation {
     return {
       ...validation,
-      errors: [...validation.errors],
-      warnings: [...validation.warnings],
+
+      errors: [
+        ...validation.errors
+      ],
+
+      warnings: [
+        ...validation.warnings
+      ],
+
       missingComponents: [
         ...validation.missingComponents
       ]
     };
   }
 
+  private cloneComponentResult(
+    result:
+      SovereignPlatformComponentResult
+  ): SovereignPlatformComponentResult {
+    return {
+      ...result,
+
+      artifacts: [
+        ...result.artifacts
+      ]
+    };
+  }
+
   private cloneResult(
-    result: SovereignPlatformBuildResult
+    result:
+      SovereignPlatformBuildResult
   ): SovereignPlatformBuildResult {
     return {
       ...result,
 
       plan:
         result.plan
-          ? this.clonePlan(result.plan)
+          ? this.clonePlan(
+              result.plan
+            )
           : undefined,
 
       components:
         result.components.map(
-          item => ({
-            ...item,
-            artifacts: [...item.artifacts]
-          })
+          item =>
+            this.cloneComponentResult(
+              item
+            )
         ),
 
       validation:
@@ -1047,4 +1011,6 @@ export class SovereignAIPlatformBuilder {
       .toString(36)
       .slice(2, 10)}`;
   }
-      }
+}
+
+export default SovereignAIPlatformBuilder;
