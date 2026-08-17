@@ -57,8 +57,12 @@ jobs:
       - name: Execute Sovereign Owner Command
         env:
           OWNER_COMMAND: ${{ inputs.command }}
+          SOVEREIGN_WORKSPACE: ${{ github.workspace }}
         run: |
           cat > /tmp/sovereign-owner-command.ts <<'EOF'
+          import fs from "node:fs";
+          import path from "node:path";
+
           import SovereignAIOwnerCommandGateway from "${{ github.workspace }}/SOVEREIGN-AI-OWNER-COMMAND-GATEWAY-208.ts";
 
           import type {
@@ -84,6 +88,16 @@ jobs:
 
             const projectId =
               "SOVEREIGN-AI-PLATFORM";
+
+            const workspace =
+              process.env.SOVEREIGN_WORKSPACE ||
+              process.cwd();
+
+            const runtimeResultFile =
+              path.join(
+                workspace,
+                "sovereign-runtime-result.json"
+              );
 
             console.log(
               "=========================================="
@@ -112,6 +126,9 @@ jobs:
                 projectId
               );
 
+            let dispatchedRuntimeResult:
+              unknown;
+
             const gateway =
               new SovereignAIOwnerCommandGateway({
                 async validateAuthority(
@@ -138,6 +155,19 @@ jobs:
                     await runtime.launch(
                       command.instruction
                     );
+
+                  dispatchedRuntimeResult =
+                    result;
+
+                  fs.writeFileSync(
+                    runtimeResultFile,
+                    JSON.stringify(
+                      result,
+                      null,
+                      2
+                    ),
+                    "utf8"
+                  );
 
                   console.log(
                     "RUNTIME RESULT:"
@@ -203,7 +233,9 @@ jobs:
                   "OWNER authority remains SUPREME.",
                   "STEWARD remains delegated below OWNER.",
                   "Preserve sovereign core architecture.",
-                  "Do not delete established sovereign files."
+                  "Do not delete established sovereign files.",
+                  "A playable game must produce real build files.",
+                  "Do not report a downloadable build unless physical build files exist."
                 ],
 
                 metadata: {
@@ -263,6 +295,15 @@ jobs:
               );
             }
 
+            if (
+              dispatchedRuntimeResult ===
+              undefined
+            ) {
+              throw new Error(
+                "Sovereign runtime produced no execution result."
+              );
+            }
+
             console.log(
               "SOVEREIGN OWNER COMMAND: SUCCESS"
             );
@@ -316,6 +357,123 @@ jobs:
 
           npx tsx /tmp/sovereign-owner-command.ts
 
+      - name: Verify Runtime Result
+        run: |
+          echo "=========================================="
+          echo "VERIFY SOVEREIGN RUNTIME RESULT"
+          echo "=========================================="
+
+          if [ ! -f sovereign-runtime-result.json ]; then
+            echo "ERROR: sovereign-runtime-result.json was not generated."
+            exit 1
+          fi
+
+          test -s sovereign-runtime-result.json
+
+          echo "Runtime result exists."
+
+      - name: Locate Real Game Build
+        id: locate_build
+        shell: bash
+        run: |
+          echo "=========================================="
+          echo "LOCATE REAL SOVEREIGN GAME BUILD"
+          echo "=========================================="
+
+          mkdir -p sovereign-artifacts
+
+          BUILD_FOUND="false"
+
+          while IFS= read -r -d '' FILE; do
+            case "$FILE" in
+              ./node_modules/*)
+                continue
+                ;;
+              ./.git/*)
+                continue
+                ;;
+              ./sovereign-artifacts/*)
+                continue
+                ;;
+            esac
+
+            BUILD_FOUND="true"
+
+            RELATIVE_PATH="${FILE#./}"
+
+            mkdir -p \
+              "sovereign-artifacts/$(dirname "$RELATIVE_PATH")"
+
+            cp -p \
+              "$FILE" \
+              "sovereign-artifacts/$RELATIVE_PATH"
+
+          done < <(
+            find . \
+              -type f \
+              \( \
+                -path "*/build/*" \
+                -o -path "*/dist/*" \
+                -o -path "*/export/*" \
+                -o -path "*/exports/*" \
+                -o -path "*/release/*" \
+                -o -path "*/releases/*" \
+              \) \
+              -print0
+          )
+
+          if [ "$BUILD_FOUND" != "true" ]; then
+            echo "ERROR: No physical game build files were produced."
+            echo "The sovereign runtime reported success, but there is nothing real to download."
+            echo "GAME BUILDER / CODE ENGINE must write the generated game and build files to the GitHub workspace."
+            exit 1
+          fi
+
+          cp \
+            sovereign-runtime-result.json \
+            sovereign-artifacts/sovereign-runtime-result.json
+
+          echo "build_found=true" >> "$GITHUB_OUTPUT"
+
+          echo "=========================================="
+          echo "REAL BUILD FILES FOUND"
+          echo "=========================================="
+
+          find sovereign-artifacts \
+            -type f \
+            -print
+
+      - name: Verify Downloadable Build
+        run: |
+          echo "=========================================="
+          echo "VERIFY DOWNLOADABLE BUILD"
+          echo "=========================================="
+
+          FILE_COUNT="$(
+            find sovereign-artifacts \
+              -type f \
+              ! -name "sovereign-runtime-result.json" \
+              | wc -l
+          )"
+
+          echo "Build file count: $FILE_COUNT"
+
+          if [ "$FILE_COUNT" -lt 1 ]; then
+            echo "ERROR: Artifact contains no real build files."
+            exit 1
+          fi
+
+          echo "Downloadable sovereign build verified."
+
+      - name: Upload Sovereign Game Build
+        uses: actions/upload-artifact@v4
+        with:
+          name: dragon-city-sovereign-build
+          path: sovereign-artifacts/
+          if-no-files-found: error
+          retention-days: 30
+          compression-level: 6
+
       - name: Owner Command Complete
         if: success()
         run: |
@@ -323,4 +481,6 @@ jobs:
           echo "SOVEREIGN OWNER COMMAND: SUCCESS"
           echo "OWNER AUTHORITY: SUPREME"
           echo "EXECUTION PIPELINE: COMPLETED"
+          echo "REAL BUILD: VERIFIED"
+          echo "DOWNLOAD ARTIFACT: dragon-city-sovereign-build"
           echo "=========================================="
