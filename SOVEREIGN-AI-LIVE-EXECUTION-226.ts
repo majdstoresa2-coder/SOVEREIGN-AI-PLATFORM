@@ -5,7 +5,8 @@
 // ============================================================
 
 import {
-  getSovereignRealComponentModules
+  getSovereignRealComponentModules,
+  resolveSovereignRealComponent
 } from "./SOVEREIGN-AI-REAL-COMPONENT-BINDINGS-224.ts";
 
 import type {
@@ -24,12 +25,29 @@ export interface SovereignLiveModuleResult {
   error?: string;
 }
 
+export interface SovereignLiveInstanceResult {
+  component: SovereignFinalComponent;
+  resolved: boolean;
+  requiredMethod?: string;
+  methodAvailable: boolean;
+  error?: string;
+}
+
 export interface SovereignLiveExecutionResult {
   success: boolean;
+
   total: number;
   loaded: number;
   failed: number;
+
   modules: SovereignLiveModuleResult[];
+
+  instancesTotal: number;
+  instancesResolved: number;
+  instancesFailed: number;
+
+  instances: SovereignLiveInstanceResult[];
+
   startedAt: number;
   completedAt: number;
 }
@@ -45,6 +63,46 @@ const liveModules =
   >();
 
 // ============================================================
+// REAL INSTANCE REQUIREMENTS
+// ============================================================
+
+const requiredLiveInstances:
+  ReadonlyArray<{
+    component: SovereignFinalComponent;
+    method: string;
+  }> = [
+    {
+      component: "BOOTSTRAP",
+      method: "boot"
+    },
+
+    {
+      component: "AUTONOMOUS_RUNTIME",
+      method: "execute"
+    },
+
+    {
+      component: "PROJECT_BUILDER",
+      method: "build"
+    },
+
+    {
+      component: "PLATFORM_BUILDER",
+      method: "build"
+    },
+
+    {
+      component: "ADMIN_BUILDER",
+      method: "build"
+    },
+
+    {
+      component: "GAME_BUILDER",
+      method: "create"
+    }
+  ];
+
+// ============================================================
 // LOAD ONE REAL MODULE
 // ============================================================
 
@@ -54,7 +112,9 @@ async function loadRealModule(
 ): Promise<SovereignLiveModuleResult> {
   try {
     const moduleNamespace =
-      await import(modulePath);
+      await import(
+        modulePath
+      );
 
     const namespace =
       moduleNamespace as Record<
@@ -72,7 +132,9 @@ async function loadRealModule(
       modulePath,
       loaded: true,
       exports:
-        Object.keys(namespace)
+        Object.keys(
+          namespace
+        )
     };
   } catch (error) {
     return {
@@ -93,10 +155,7 @@ async function loadRealModule(
 // ============================================================
 
 export async function loadAllSovereignRealModules():
-  Promise<SovereignLiveExecutionResult> {
-  const startedAt =
-    Date.now();
-
+  Promise<SovereignLiveModuleResult[]> {
   const registry =
     getSovereignRealComponentModules();
 
@@ -105,67 +164,51 @@ export async function loadAllSovereignRealModules():
 
   for (
     const [name, path]
-    of Object.entries(registry)
+    of Object.entries(
+      registry
+    )
   ) {
     if (
-      typeof path !== "string"
+      typeof path !== "string" ||
+      path.length === 0
     ) {
       continue;
     }
 
+    const component =
+      name as SovereignFinalComponent;
+
     const result =
       await loadRealModule(
-        name as SovereignFinalComponent,
+        component,
         path
       );
 
-    modules.push(result);
+    modules.push(
+      result
+    );
 
-    if (result.loaded) {
+    if (
+      result.loaded
+    ) {
       console.log(
-        `[LIVE OK] ${name} -> ${path}`
-      );
-    } else {
-      console.error(
-        `[LIVE FAIL] ${name} -> ${path}`
+        `[LIVE MODULE OK] ${name} -> ${path}`
       );
 
-      console.error(
-        result.error ??
-          "Unknown module loading error."
-      );
+      continue;
     }
+
+    console.error(
+      `[LIVE MODULE FAIL] ${name} -> ${path}`
+    );
+
+    console.error(
+      result.error ??
+        "Unknown module loading error."
+    );
   }
 
-  const loaded =
-    modules.filter(
-      module =>
-        module.loaded
-    ).length;
-
-  const failed =
-    modules.length -
-    loaded;
-
-  return {
-    success:
-      failed === 0 &&
-      modules.length > 0,
-
-    total:
-      modules.length,
-
-    loaded,
-
-    failed,
-
-    modules,
-
-    startedAt,
-
-    completedAt:
-      Date.now()
-  };
+  return modules;
 }
 
 // ============================================================
@@ -184,6 +227,195 @@ export function getLoadedSovereignModule(
 }
 
 // ============================================================
+// VERIFY ONE REAL INSTANCE
+// ============================================================
+
+async function verifyRealInstance(
+  component:
+    SovereignFinalComponent,
+
+  requiredMethod:
+    string
+): Promise<SovereignLiveInstanceResult> {
+  try {
+    const instance =
+      await resolveSovereignRealComponent(
+        component
+      );
+
+    if (!instance) {
+      return {
+        component,
+        resolved: false,
+        requiredMethod,
+        methodAvailable: false,
+        error:
+          `${component} could not be resolved.`
+      };
+    }
+
+    const candidate =
+      instance as Record<
+        string,
+        unknown
+      >;
+
+    const methodAvailable =
+      typeof candidate[
+        requiredMethod
+      ] === "function";
+
+    if (
+      !methodAvailable
+    ) {
+      return {
+        component,
+        resolved: true,
+        requiredMethod,
+        methodAvailable: false,
+        error:
+          `${component} does not expose ${requiredMethod}().`
+      };
+    }
+
+    return {
+      component,
+      resolved: true,
+      requiredMethod,
+      methodAvailable: true
+    };
+  } catch (error) {
+    return {
+      component,
+      resolved: false,
+      requiredMethod,
+      methodAvailable: false,
+      error:
+        error instanceof Error
+          ? error.message
+          : String(error)
+    };
+  }
+}
+
+// ============================================================
+// VERIFY ALL REQUIRED REAL INSTANCES
+// ============================================================
+
+export async function verifySovereignLiveInstances():
+  Promise<SovereignLiveInstanceResult[]> {
+  const results:
+    SovereignLiveInstanceResult[] = [];
+
+  for (
+    const requirement of
+      requiredLiveInstances
+  ) {
+    const result =
+      await verifyRealInstance(
+        requirement.component,
+        requirement.method
+      );
+
+    results.push(
+      result
+    );
+
+    if (
+      result.resolved &&
+      result.methodAvailable
+    ) {
+      console.log(
+        `[LIVE INSTANCE OK] ${result.component}.${requirement.method}()`
+      );
+
+      continue;
+    }
+
+    console.error(
+      `[LIVE INSTANCE FAIL] ${result.component}.${requirement.method}()`
+    );
+
+    console.error(
+      result.error ??
+        "Unknown live instance verification error."
+    );
+  }
+
+  return results;
+}
+
+// ============================================================
+// EXECUTE COMPLETE LIVE GATE
+// ============================================================
+
+export async function executeSovereignLiveGate():
+  Promise<SovereignLiveExecutionResult> {
+  const startedAt =
+    Date.now();
+
+  const modules =
+    await loadAllSovereignRealModules();
+
+  const loaded =
+    modules.filter(
+      module =>
+        module.loaded
+    ).length;
+
+  const failed =
+    modules.length -
+    loaded;
+
+  const instances =
+    await verifySovereignLiveInstances();
+
+  const instancesResolved =
+    instances.filter(
+      instance =>
+        instance.resolved &&
+        instance.methodAvailable
+    ).length;
+
+  const instancesFailed =
+    instances.length -
+    instancesResolved;
+
+  const success =
+    modules.length > 0 &&
+    failed === 0 &&
+    instances.length > 0 &&
+    instancesFailed === 0;
+
+  return {
+    success,
+
+    total:
+      modules.length,
+
+    loaded,
+
+    failed,
+
+    modules,
+
+    instancesTotal:
+      instances.length,
+
+    instancesResolved,
+
+    instancesFailed,
+
+    instances,
+
+    startedAt,
+
+    completedAt:
+      Date.now()
+  };
+}
+
+// ============================================================
 // FINAL EXECUTION
 // ============================================================
 
@@ -198,7 +430,7 @@ async function main():
   );
 
   console.log(
-    "REAL LIVE MODULE EXECUTION"
+    "REAL LIVE EXECUTION GATE"
   );
 
   console.log(
@@ -206,10 +438,14 @@ async function main():
   );
 
   const result =
-    await loadAllSovereignRealModules();
+    await executeSovereignLiveGate();
 
   console.log(
     "============================================"
+  );
+
+  console.log(
+    "REAL MODULES"
   );
 
   console.log(
@@ -224,16 +460,55 @@ async function main():
     `FAILED: ${result.failed}`
   );
 
-  if (!result.success) {
+  console.log(
+    "============================================"
+  );
+
+  console.log(
+    "REAL INSTANCES"
+  );
+
+  console.log(
+    `TOTAL: ${result.instancesTotal}`
+  );
+
+  console.log(
+    `RESOLVED: ${result.instancesResolved}`
+  );
+
+  console.log(
+    `FAILED: ${result.instancesFailed}`
+  );
+
+  console.log(
+    "============================================"
+  );
+
+  if (
+    !result.success
+  ) {
     console.error(
       "SOVEREIGN LIVE EXECUTION: BLOCKED"
     );
 
-    console.error(
-      "One or more real sovereign modules failed to load."
-    );
+    if (
+      result.failed > 0
+    ) {
+      console.error(
+        "One or more real sovereign modules failed to load."
+      );
+    }
 
-    process.exitCode = 1;
+    if (
+      result.instancesFailed > 0
+    ) {
+      console.error(
+        "One or more required sovereign runtime instances failed verification."
+      );
+    }
+
+    process.exitCode =
+      1;
 
     return;
   }
@@ -247,9 +522,21 @@ async function main():
   );
 
   console.log(
+    "ALL REQUIRED REAL INSTANCES VERIFIED"
+  );
+
+  console.log(
+    "SOVEREIGN AI PLATFORM LIVE GATE: READY"
+  );
+
+  console.log(
     "============================================"
   );
 }
+
+// ============================================================
+// START
+// ============================================================
 
 main().catch(
   error => {
@@ -264,6 +551,7 @@ main().catch(
         : String(error)
     );
 
-    process.exitCode = 1;
+    process.exitCode =
+      1;
   }
 );
