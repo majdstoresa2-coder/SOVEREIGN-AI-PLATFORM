@@ -5110,3 +5110,1964 @@ export function getSovereignGameBuildPath(
 // ============================================================
 
 export default createSovereignRealRuntime;
+// ============================================================
+// MAJD SOVEREIGN UNIVERSAL CREATION & EVOLUTION ENGINE
+// INTERNAL-FIRST / OWNER-SUPREME / FULL-AUTONOMOUS
+// ============================================================
+
+export type MajdSovereignProductType =
+  | "GAME"
+  | "PLATFORM"
+  | "ADMIN"
+  | "SOCIAL"
+  | "SHORT_VIDEO"
+  | "LONG_VIDEO"
+  | "STORIES"
+  | "LIVE"
+  | "CHAT"
+  | "COMMUNITIES"
+  | "TV"
+  | "CINEMA"
+  | "FILM"
+  | "SERIES"
+  | "ANIMATION"
+  | "DOCUMENTARY"
+  | "ADVERTISING"
+  | "CREATOR"
+  | "COMMERCE"
+  | "WALLET"
+  | "BILLING"
+  | "LEDGER"
+  | "LEGAL"
+  | "LICENSING"
+  | "MAIL"
+  | "SECURITY"
+  | "INFRASTRUCTURE"
+  | "SERVICE"
+  | "GENERAL";
+
+export type MajdLegalStage =
+  | "FREELANCE_DOCUMENT"
+  | "ESTABLISHMENT"
+  | "COMPANY";
+
+export type MajdExecutionState =
+  | "RECEIVED"
+  | "UNDERSTANDING"
+  | "PLANNING"
+  | "DESIGNING"
+  | "GENERATING"
+  | "WRITING"
+  | "INTEGRATING"
+  | "TESTING"
+  | "QUALITY_CHECK"
+  | "REPAIRING"
+  | "BUILDING"
+  | "VERIFYING"
+  | "READY"
+  | "BLOCKED"
+  | "FAILED";
+
+export interface MajdSovereignCreationRequest {
+  id: string;
+  ownerId: string;
+  instruction: string;
+
+  projectId: string;
+
+  productType:
+    MajdSovereignProductType;
+
+  autonomous: boolean;
+
+  legalStage:
+    MajdLegalStage;
+
+  createdAt: number;
+
+  metadata?: Record<
+    string,
+    unknown
+  >;
+}
+
+export interface MajdCapabilityPlan {
+  id: string;
+
+  name: string;
+
+  required: boolean;
+
+  category:
+    | "ENGINE"
+    | "WORLD"
+    | "GAMEPLAY"
+    | "UI"
+    | "MEDIA"
+    | "SOCIAL"
+    | "FINANCE"
+    | "LEGAL"
+    | "SECURITY"
+    | "MAIL"
+    | "INFRASTRUCTURE"
+    | "QUALITY";
+
+  requirements: string[];
+}
+
+export interface MajdSovereignPlan {
+  projectId: string;
+
+  productType:
+    MajdSovereignProductType;
+
+  title: string;
+
+  objective: string;
+
+  capabilities:
+    MajdCapabilityPlan[];
+
+  acceptanceCriteria:
+    string[];
+
+  qualityCriteria:
+    string[];
+
+  rightsCriteria:
+    string[];
+
+  generatedAt: number;
+}
+
+export interface MajdPhysicalFile {
+  path: string;
+
+  content: string;
+
+  checksum: string;
+
+  category:
+    | "SOURCE"
+    | "BUILD"
+    | "CONFIG"
+    | "ASSET"
+    | "LEGAL"
+    | "RIGHTS"
+    | "REPORT";
+}
+
+export interface MajdQualityResult {
+  success: boolean;
+
+  score: number;
+
+  checks:
+    Record<
+      string,
+      boolean
+    >;
+
+  errors: string[];
+
+  warnings: string[];
+}
+
+export interface MajdRightsResult {
+  success: boolean;
+
+  originalOnly: boolean;
+
+  externalDependencyFound:
+    boolean;
+
+  prohibitedDependencyFound:
+    boolean;
+
+  errors: string[];
+
+  warnings: string[];
+}
+
+export interface MajdSovereignCreationResult {
+  id: string;
+
+  projectId: string;
+
+  productType:
+    MajdSovereignProductType;
+
+  state:
+    MajdExecutionState;
+
+  success: boolean;
+
+  playable?: boolean;
+
+  buildPath?: string;
+
+  launchTarget?: string;
+
+  files:
+    MajdPhysicalFile[];
+
+  quality?:
+    MajdQualityResult;
+
+  rights?:
+    MajdRightsResult;
+
+  repairAttempts: number;
+
+  errors: string[];
+
+  startedAt: number;
+
+  completedAt: number;
+}
+
+// ============================================================
+// SOVEREIGN OWNERSHIP POLICY
+// ============================================================
+
+export const MAJD_SOVEREIGN_OWNERSHIP_POLICY =
+  Object.freeze({
+    owner:
+      "MAJD",
+
+    ownerAuthority:
+      "SUPREME",
+
+    stewardAuthority:
+      "DELEGATED",
+
+    internalFirst:
+      true,
+
+    externalCoreProvidersAllowed:
+      false,
+
+    thirdPartyGameEngines:
+      "PROHIBITED",
+
+    thirdPartyPlatformCore:
+      "PROHIBITED",
+
+    thirdPartyAIControlPlane:
+      "PROHIBITED",
+
+    thirdPartyDeploymentControlPlane:
+      "PROHIBITED",
+
+    unknownThirdPartyAssets:
+      "PROHIBITED",
+
+    allowedTemporaryOrRegulatedGateways: [
+      "GMAIL_TRANSITIONAL_ONLY",
+      "MOYASAR_PAYMENT_GATEWAY"
+    ],
+
+    futureMailTarget:
+      "MAJD_INTERNAL_MAIL",
+
+    sovereignEngine:
+      "MAJD_WEB_ENGINE",
+
+    sovereignRuntime:
+      "MAJD_SOVEREIGN_RUNTIME"
+  } as const);
+
+// ============================================================
+// MAJD LEGAL ENTITY LIFECYCLE
+// ============================================================
+
+export const MAJD_LEGAL_ENTITY_LIFECYCLE =
+  Object.freeze({
+    current:
+      "FREELANCE_DOCUMENT" as
+        MajdLegalStage,
+
+    progression: [
+      "FREELANCE_DOCUMENT",
+      "ESTABLISHMENT",
+      "COMPANY"
+    ] as const,
+
+    ownerNotificationDriven:
+      true,
+
+    autonomousPropagation:
+      true,
+
+    rules: [
+      "OWNER informs the sovereign system of an official legal-stage change.",
+      "AI validates the supplied stage and supporting metadata.",
+      "AI updates internal legal configuration.",
+      "AI propagates the new stage to billing, ledger, contracts, rights and administration.",
+      "AI records an immutable audit event.",
+      "AI never claims that an external government registration was completed unless real evidence exists."
+    ]
+  } as const);
+
+// ============================================================
+// MAJD RIGHTS & LICENSING GUARD
+// ============================================================
+
+const MAJD_PROHIBITED_EXTERNAL_ENGINES =
+  new Set([
+    "unity",
+    "unreal",
+    "godot",
+    "babylon",
+    "babylonjs",
+    "three.js",
+    "threejs"
+  ]);
+
+function normalizeRightsText(
+  input: string
+): string {
+  return input
+    .toLowerCase()
+    .replace(
+      /\s+/g,
+      " "
+    );
+}
+
+function inspectMajdRights(
+  request:
+    MajdSovereignCreationRequest,
+
+  files:
+    MajdPhysicalFile[]
+): MajdRightsResult {
+  const errors:
+    string[] = [];
+
+  const warnings:
+    string[] = [];
+
+  let externalDependencyFound =
+    false;
+
+  let prohibitedDependencyFound =
+    false;
+
+  const combined =
+    normalizeRightsText(
+      [
+        request.instruction,
+
+        ...files.map(
+          file =>
+            file.content
+        )
+      ].join("\n")
+    );
+
+  for (
+    const engine of
+      MAJD_PROHIBITED_EXTERNAL_ENGINES
+  ) {
+    if (
+      combined.includes(
+        `from "${engine}`
+      ) ||
+      combined.includes(
+        `from '${engine}`
+      ) ||
+      combined.includes(
+        `cdn.${engine}`
+      )
+    ) {
+      externalDependencyFound =
+        true;
+
+      prohibitedDependencyFound =
+        true;
+
+      errors.push(
+        `Prohibited external core dependency detected: ${engine}`
+      );
+    }
+  }
+
+  const suspiciousRemote =
+    /https?:\/\/(?!maj[d]?\.|localhost)/i
+      .test(
+        files
+          .map(
+            file =>
+              file.content
+          )
+          .join("\n")
+      );
+
+  if (
+    suspiciousRemote
+  ) {
+    externalDependencyFound =
+      true;
+
+    warnings.push(
+      "Remote external reference detected. It requires explicit sovereign rights review."
+    );
+  }
+
+  return {
+    success:
+      !prohibitedDependencyFound,
+
+    originalOnly:
+      !prohibitedDependencyFound,
+
+    externalDependencyFound,
+
+    prohibitedDependencyFound,
+
+    errors,
+
+    warnings
+  };
+}
+
+// ============================================================
+// MAJD INTERNAL LICENSE + RIGHTS MANIFEST
+// ============================================================
+
+function createMajdRightsManifest(
+  request:
+    MajdSovereignCreationRequest
+): string {
+  return JSON.stringify(
+    {
+      platform:
+        "MAJD",
+
+      ownerAuthority:
+        "SUPREME",
+
+      projectId:
+        request.projectId,
+
+      legalStage:
+        request.legalStage,
+
+      intellectualPropertyPolicy: {
+        internalOriginalCreation:
+          true,
+
+        thirdPartyOwnershipClaim:
+          false,
+
+        unknownRightsAssetsAllowed:
+          false,
+
+        externalCoreEnginesAllowed:
+          false
+      },
+
+      gateways: {
+        gmail:
+          "TRANSITIONAL_ONLY",
+
+        moyasar:
+          "PAYMENT_GATEWAY_ONLY"
+      },
+
+      generatedAt:
+        Date.now()
+    },
+    null,
+    2
+  );
+}
+
+// ============================================================
+// MAJD UNIVERSAL CAPABILITY PLANNER
+// ============================================================
+
+function detectProductType(
+  instruction: string
+): MajdSovereignProductType {
+  const text =
+    instruction.toLowerCase();
+
+  if (
+    /لعبة|game|rpg|battle|سباق|صقيع|قلعة|مملكة|روبلكس|roblox|fortnite/i
+      .test(text)
+  ) {
+    return "GAME";
+  }
+
+  if (
+    /فيلم|سينما|movie|film/i
+      .test(text)
+  ) {
+    return "FILM";
+  }
+
+  if (
+    /مسلسل|series|episodes/i
+      .test(text)
+  ) {
+    return "SERIES";
+  }
+
+  if (
+    /تلفزيون|tv|channel|قناة/i
+      .test(text)
+  ) {
+    return "TV";
+  }
+
+  if (
+    /بث|live/i
+      .test(text)
+  ) {
+    return "LIVE";
+  }
+
+  if (
+    /اجتماعي|social/i
+      .test(text)
+  ) {
+    return "SOCIAL";
+  }
+
+  if (
+    /محفظ|wallet/i
+      .test(text)
+  ) {
+    return "WALLET";
+  }
+
+  if (
+    /قانون|حقوق|legal|license|ترخيص/i
+      .test(text)
+  ) {
+    return "LEGAL";
+  }
+
+  return "GENERAL";
+}
+
+function baseCapability(
+  id: string,
+  name: string,
+  category:
+    MajdCapabilityPlan["category"],
+  requirements:
+    string[]
+): MajdCapabilityPlan {
+  return {
+    id,
+    name,
+    required:
+      true,
+    category,
+    requirements
+  };
+}
+
+function createGameCapabilities():
+  MajdCapabilityPlan[] {
+  return [
+    baseCapability(
+      "majd-web-engine",
+      "MAJD Sovereign Web Engine",
+      "ENGINE",
+      [
+        "Internal MAJD renderer.",
+        "No third-party game engine.",
+        "Web-native runtime.",
+        "Physical source files.",
+        "Real build output."
+      ]
+    ),
+
+    baseCapability(
+      "world-runtime",
+      "World Runtime",
+      "WORLD",
+      [
+        "Large scalable world.",
+        "Terrain.",
+        "Elevation.",
+        "Regions.",
+        "World streaming architecture.",
+        "Environmental state."
+      ]
+    ),
+
+    baseCapability(
+      "camera-runtime",
+      "Camera Runtime",
+      "WORLD",
+      [
+        "Pan.",
+        "Zoom.",
+        "Rotation where appropriate.",
+        "Touch controls.",
+        "Mouse controls.",
+        "Responsive framing."
+      ]
+    ),
+
+    baseCapability(
+      "gameplay-runtime",
+      "Gameplay Runtime",
+      "GAMEPLAY",
+      [
+        "Real state changes.",
+        "Interaction.",
+        "Progression.",
+        "Objectives.",
+        "Persistent architecture."
+      ]
+    ),
+
+    baseCapability(
+      "kingdom-runtime",
+      "Kingdom Runtime",
+      "GAMEPLAY",
+      [
+        "Buildings.",
+        "Resources.",
+        "Upgrades.",
+        "Population.",
+        "Army.",
+        "Research.",
+        "Heroes.",
+        "Quests.",
+        "Exploration."
+      ]
+    ),
+
+    baseCapability(
+      "quality-runtime",
+      "Production Quality Gate",
+      "QUALITY",
+      [
+        "No JSON-only success.",
+        "No placeholder-only success.",
+        "No fake playable flag.",
+        "No fake build path.",
+        "Real files required."
+      ]
+    ),
+
+    baseCapability(
+      "rights-runtime",
+      "Rights Guard",
+      "LEGAL",
+      [
+        "Original MAJD output.",
+        "No unverified third-party assets.",
+        "No prohibited third-party engine."
+      ]
+    )
+  ];
+}
+
+function createUniversalPlan(
+  request:
+    MajdSovereignCreationRequest
+): MajdSovereignPlan {
+  const capabilities:
+    MajdCapabilityPlan[] =
+      request.productType ===
+        "GAME"
+        ? createGameCapabilities()
+        : [
+            baseCapability(
+              "product-core",
+              "MAJD Product Core",
+              "ENGINE",
+              [
+                "Internal implementation.",
+                "Physical output.",
+                "Testable result."
+              ]
+            ),
+
+            baseCapability(
+              "product-security",
+              "Security",
+              "SECURITY",
+              [
+                "Input validation.",
+                "Audit.",
+                "Owner authority."
+              ]
+            ),
+
+            baseCapability(
+              "product-rights",
+              "Rights",
+              "LEGAL",
+              [
+                "Original MAJD implementation.",
+                "Rights provenance."
+              ]
+            ),
+
+            baseCapability(
+              "product-quality",
+              "Quality",
+              "QUALITY",
+              [
+                "No simulated completion.",
+                "Real output required."
+              ]
+            )
+          ];
+
+  return {
+    projectId:
+      request.projectId,
+
+    productType:
+      request.productType,
+
+    title:
+      `MAJD ${request.productType}`,
+
+    objective:
+      request.instruction,
+
+    capabilities,
+
+    acceptanceCriteria: [
+      "OWNER instruction represented in generated implementation.",
+      "Physical files exist.",
+      "Required runtime files exist.",
+      "Tests pass.",
+      "Quality gate passes.",
+      "Rights gate passes.",
+      "Build exists physically."
+    ],
+
+    qualityCriteria: [
+      "No JSON-only completion.",
+      "No metadata-only completion.",
+      "No placeholder-only production result.",
+      "No fake playable result.",
+      "No fake build path.",
+      "No fake deployment result."
+    ],
+
+    rightsCriteria: [
+      "MAJD internal creation first.",
+      "Unknown third-party rights are blocked.",
+      "External core engines are prohibited.",
+      "External gateways do not acquire MAJD ownership."
+    ],
+
+    generatedAt:
+      Date.now()
+  };
+}
+
+// ============================================================
+// MAJD OWN WEB ENGINE SOURCE
+// ============================================================
+
+function createMajdEngineSource():
+  string {
+  return `
+"use strict";
+
+/**
+ * MAJD SOVEREIGN WEB ENGINE
+ * Internal browser runtime.
+ * No third-party game engine dependency.
+ */
+
+export class MajdEngine {
+  constructor(canvas) {
+    if (!(canvas instanceof HTMLCanvasElement)) {
+      throw new Error("MAJD Engine requires a canvas.");
+    }
+
+    this.canvas = canvas;
+
+    this.gl =
+      canvas.getContext("webgl2", {
+        antialias: true,
+        alpha: false,
+        depth: true,
+        powerPreference: "high-performance"
+      }) ||
+      canvas.getContext("webgl", {
+        antialias: true,
+        alpha: false,
+        depth: true
+      });
+
+    if (!this.gl) {
+      throw new Error(
+        "MAJD Engine: WebGL runtime unavailable."
+      );
+    }
+
+    this.time = 0;
+    this.running = false;
+    this.scene = null;
+
+    this.camera = {
+      x: 0,
+      y: 70,
+      z: 120,
+      yaw: 0,
+      pitch: -0.45,
+      zoom: 1
+    };
+
+    this.input = {
+      pointerDown: false,
+      lastX: 0,
+      lastY: 0
+    };
+
+    this.resize =
+      this.resize.bind(this);
+
+    this.frame =
+      this.frame.bind(this);
+
+    window.addEventListener(
+      "resize",
+      this.resize
+    );
+
+    this.installInput();
+
+    this.resize();
+  }
+
+  installInput() {
+    const canvas = this.canvas;
+
+    canvas.addEventListener(
+      "pointerdown",
+      event => {
+        this.input.pointerDown = true;
+        this.input.lastX = event.clientX;
+        this.input.lastY = event.clientY;
+        canvas.setPointerCapture?.(
+          event.pointerId
+        );
+      }
+    );
+
+    canvas.addEventListener(
+      "pointerup",
+      () => {
+        this.input.pointerDown = false;
+      }
+    );
+
+    canvas.addEventListener(
+      "pointermove",
+      event => {
+        if (!this.input.pointerDown) {
+          return;
+        }
+
+        const dx =
+          event.clientX -
+          this.input.lastX;
+
+        const dy =
+          event.clientY -
+          this.input.lastY;
+
+        this.camera.x -= dx * 0.18;
+        this.camera.z -= dy * 0.18;
+
+        this.input.lastX =
+          event.clientX;
+
+        this.input.lastY =
+          event.clientY;
+      }
+    );
+
+    canvas.addEventListener(
+      "wheel",
+      event => {
+        event.preventDefault();
+
+        this.camera.zoom =
+          Math.min(
+            2.5,
+            Math.max(
+              0.45,
+              this.camera.zoom +
+                event.deltaY * -0.001
+            )
+          );
+      },
+      {
+        passive: false
+      }
+    );
+  }
+
+  resize() {
+    const dpr =
+      Math.min(
+        window.devicePixelRatio || 1,
+        2
+      );
+
+    const width =
+      Math.max(
+        1,
+        Math.floor(
+          this.canvas.clientWidth *
+          dpr
+        )
+      );
+
+    const height =
+      Math.max(
+        1,
+        Math.floor(
+          this.canvas.clientHeight *
+          dpr
+        )
+      );
+
+    if (
+      this.canvas.width !== width ||
+      this.canvas.height !== height
+    ) {
+      this.canvas.width = width;
+      this.canvas.height = height;
+    }
+
+    this.gl.viewport(
+      0,
+      0,
+      width,
+      height
+    );
+  }
+
+  setScene(scene) {
+    this.scene = scene;
+  }
+
+  start() {
+    if (this.running) {
+      return;
+    }
+
+    this.running = true;
+
+    requestAnimationFrame(
+      this.frame
+    );
+  }
+
+  stop() {
+    this.running = false;
+  }
+
+  frame(timestamp) {
+    if (!this.running) {
+      return;
+    }
+
+    this.time =
+      timestamp / 1000;
+
+    const gl = this.gl;
+
+    gl.enable(
+      gl.DEPTH_TEST
+    );
+
+    gl.clearColor(
+      0.045,
+      0.075,
+      0.12,
+      1
+    );
+
+    gl.clear(
+      gl.COLOR_BUFFER_BIT |
+      gl.DEPTH_BUFFER_BIT
+    );
+
+    if (
+      this.scene &&
+      typeof this.scene.update ===
+        "function"
+    ) {
+      this.scene.update(
+        this.time,
+        this
+      );
+    }
+
+    if (
+      this.scene &&
+      typeof this.scene.render ===
+        "function"
+    ) {
+      this.scene.render(
+        gl,
+        this
+      );
+    }
+
+    requestAnimationFrame(
+      this.frame
+    );
+  }
+}
+`;
+}
+
+// ============================================================
+// MAJD GAME WORLD SOURCE
+// ============================================================
+
+function createMajdWorldSource(
+  instruction: string
+): string {
+  const frozen =
+    /صقيع|ثلج|frozen|snow|ice/i
+      .test(
+        instruction
+      );
+
+  return `
+"use strict";
+
+export function createMajdWorld() {
+  return {
+    id: "majd-world",
+
+    theme:
+      ${JSON.stringify(
+        frozen
+          ? "FROZEN_KINGDOM"
+          : "MAJD_ORIGINAL_WORLD"
+      )},
+
+    size: {
+      width: 8192,
+      depth: 8192
+    },
+
+    terrain: {
+      enabled: true,
+      elevation: true,
+      mountains: true,
+      valleys: true,
+      roads: true,
+      strategicRegions: true
+    },
+
+    environment: {
+      snow:
+        ${frozen},
+
+      storms:
+        ${frozen},
+
+      fog: true,
+
+      dayNight: true,
+
+      dynamicLighting: true
+    },
+
+    kingdom: {
+      castle: true,
+      walls: true,
+      gates: true,
+      defenseTowers: true,
+      residential: true,
+      warehouses: true,
+      barracks: true,
+      hospital: true,
+      research: true,
+      workshops: true,
+      trade: true
+    },
+
+    systems: {
+      resources: true,
+      upgrades: true,
+      heroes: true,
+      armies: true,
+      quests: true,
+      exploration: true,
+      alliances: true,
+      progression: true
+    },
+
+    progression: {
+      advancedMilestone: 30,
+
+      advancedEnergyEvolution:
+        true,
+
+      originalMajdImplementation:
+        true
+    }
+  };
+}
+`;
+}
+
+// ============================================================
+// MAJD GAME RUNTIME SOURCE
+// ============================================================
+
+function createMajdGameRuntimeSource(
+  instruction: string
+): string {
+  return `
+"use strict";
+
+import {
+  MajdEngine
+} from "./majd-engine.js";
+
+import {
+  createMajdWorld
+} from "./majd-world.js";
+
+const canvas =
+  document.getElementById(
+    "majd-game"
+  );
+
+if (
+  !(canvas instanceof HTMLCanvasElement)
+) {
+  throw new Error(
+    "MAJD game canvas not found."
+  );
+}
+
+const engine =
+  new MajdEngine(
+    canvas
+  );
+
+const world =
+  createMajdWorld();
+
+const gameState = {
+  resources: {
+    gold: 1500,
+    wood: 1200,
+    stone: 1000,
+    food: 1400
+  },
+
+  kingdomLevel: 1,
+
+  population: 30,
+
+  temperature:
+    world.theme ===
+      "FROZEN_KINGDOM"
+      ? -38
+      : 22,
+
+  objective:
+    ${JSON.stringify(
+      instruction
+    )}
+};
+
+const scene = {
+  update(
+    time,
+    runtime
+  ) {
+    void time;
+    void runtime;
+  },
+
+  render(
+    gl,
+    runtime
+  ) {
+    /*
+     * MAJD OWN RENDERER ENTRY.
+     *
+     * This production gate intentionally does
+     * NOT declare geometric placeholders to be
+     * completed art.
+     *
+     * The sovereign generation pipeline must
+     * populate real MAJD visual assets/meshes
+     * before production acceptance.
+     */
+
+    void gl;
+    void runtime;
+  }
+};
+
+engine.setScene(
+  scene
+);
+
+engine.start();
+
+globalThis.MAJD_GAME = {
+  engine,
+  world,
+  gameState
+};
+`;
+}
+
+// ============================================================
+// WEB INDEX
+// ============================================================
+
+function createMajdIndexSource(
+  title: string
+): string {
+  return `<!doctype html>
+<html lang="ar" dir="rtl">
+<head>
+  <meta charset="utf-8">
+  <meta
+    name="viewport"
+    content="width=device-width,initial-scale=1,viewport-fit=cover"
+  >
+  <meta
+    name="theme-color"
+    content="#07101d"
+  >
+
+  <title>${title}</title>
+
+  <link
+    rel="stylesheet"
+    href="./styles.css"
+  >
+</head>
+
+<body>
+  <main id="majd-app">
+    <canvas
+      id="majd-game"
+      aria-label="MAJD Sovereign Game"
+    ></canvas>
+
+    <section
+      id="majd-hud"
+    >
+      <strong>
+        ${title}
+      </strong>
+
+      <span>
+        MAJD SOVEREIGN ENGINE
+      </span>
+    </section>
+  </main>
+
+  <script
+    type="module"
+    src="./game.js"
+  ></script>
+</body>
+</html>
+`;
+}
+
+function createMajdStylesSource():
+  string {
+  return `
+html,
+body {
+  width: 100%;
+  height: 100%;
+  margin: 0;
+  overflow: hidden;
+  background:
+    #07101d;
+  font-family:
+    system-ui,
+    sans-serif;
+}
+
+#majd-app {
+  position: relative;
+  width: 100%;
+  height: 100%;
+}
+
+#majd-game {
+  display: block;
+  width: 100%;
+  height: 100%;
+  touch-action: none;
+}
+
+#majd-hud {
+  position: absolute;
+  top: max(12px, env(safe-area-inset-top));
+  right: max(12px, env(safe-area-inset-right));
+
+  display: flex;
+  flex-direction: column;
+  gap: 4px;
+
+  padding: 10px 14px;
+
+  background:
+    rgba(4, 10, 19, 0.76);
+
+  color:
+    white;
+
+  border:
+    1px solid
+    rgba(255,255,255,0.14);
+
+  border-radius:
+    12px;
+
+  backdrop-filter:
+    blur(8px);
+
+  pointer-events:
+    none;
+}
+`;
+}
+
+// ============================================================
+// PHYSICAL FILE WRITER
+// ============================================================
+
+async function writeMajdPhysicalFile(
+  root: string,
+  relativePath: string,
+  content: string,
+  category:
+    MajdPhysicalFile["category"]
+): Promise<MajdPhysicalFile> {
+  const normalized =
+    path.normalize(
+      relativePath
+    );
+
+  if (
+    normalized.startsWith(
+      ".."
+    ) ||
+    path.isAbsolute(
+      normalized
+    )
+  ) {
+    throw new Error(
+      `Unsafe MAJD output path: ${relativePath}`
+    );
+  }
+
+  const destination =
+    path.join(
+      root,
+      normalized
+    );
+
+  await writeTextFile(
+    destination,
+    content
+  );
+
+  return {
+    path:
+      destination,
+
+    content,
+
+    checksum:
+      checksum(content),
+
+    category
+  };
+}
+
+// ============================================================
+// BUILD VERIFICATION
+// ============================================================
+
+async function verifyMajdBuild(
+  buildRoot: string,
+  files:
+    MajdPhysicalFile[]
+): Promise<MajdQualityResult> {
+  const errors:
+    string[] = [];
+
+  const warnings:
+    string[] = [];
+
+  const required = [
+    "index.html",
+    "styles.css",
+    "game.js",
+    "majd-engine.js",
+    "majd-world.js",
+    "majd-rights.json"
+  ];
+
+  const checks:
+    Record<
+      string,
+      boolean
+    > = {};
+
+  for (
+    const file of
+      required
+  ) {
+    const exists =
+      await fileExists(
+        path.join(
+          buildRoot,
+          file
+        )
+      );
+
+    checks[
+      `file:${file}`
+    ] =
+      exists;
+
+    if (!exists) {
+      errors.push(
+        `Required physical build file missing: ${file}`
+      );
+    }
+  }
+
+  const sourceText =
+    files
+      .map(
+        file =>
+          file.content
+      )
+      .join("\n");
+
+  const jsonOnly =
+    files.length > 0 &&
+    files.every(
+      file =>
+        file.path.endsWith(
+          ".json"
+        )
+    );
+
+  checks.jsonOnly =
+    !jsonOnly;
+
+  if (jsonOnly) {
+    errors.push(
+      "JSON-only output cannot pass production quality."
+    );
+  }
+
+  const externalEngine =
+    /babylon|three\.js|unity|unreal|godot/i
+      .test(
+        sourceText
+      );
+
+  checks.noExternalEngine =
+    !externalEngine;
+
+  if (
+    externalEngine
+  ) {
+    errors.push(
+      "External game engine dependency detected."
+    );
+  }
+
+  const physicalCount =
+    files.filter(
+      file =>
+        file.category ===
+          "BUILD" ||
+        file.category ===
+          "SOURCE"
+    ).length;
+
+  checks.physicalFiles =
+    physicalCount >= 4;
+
+  if (
+    physicalCount < 4
+  ) {
+    errors.push(
+      "Insufficient physical production files."
+    );
+  }
+
+  /*
+   * Critical rule:
+   * We do NOT fake visual-production quality.
+   *
+   * The internal engine exists physically,
+   * but final 3D assets must be produced by
+   * the sovereign creation pipeline before
+   * a production game may be called complete.
+   */
+  const realVisualAssets =
+    files.some(
+      file =>
+        file.category ===
+          "ASSET"
+    );
+
+  checks.realVisualAssets =
+    realVisualAssets;
+
+  if (
+    !realVisualAssets
+  ) {
+    errors.push(
+      "Production visual assets are not yet present. Placeholder-free visual quality cannot be verified."
+    );
+  }
+
+  const passed =
+    Object.values(
+      checks
+    ).filter(Boolean)
+      .length;
+
+  const total =
+    Object.keys(
+      checks
+    ).length;
+
+  const score =
+    total === 0
+      ? 0
+      : Math.round(
+          (
+            passed /
+            total
+          ) *
+          100
+        );
+
+  return {
+    success:
+      errors.length ===
+      0,
+
+    score,
+
+    checks,
+
+    errors,
+
+    warnings
+  };
+}
+
+// ============================================================
+// MAJD SOVEREIGN CREATION EXECUTOR
+// ============================================================
+
+export async function executeMajdSovereignCreation(
+  input:
+    Partial<
+      MajdSovereignCreationRequest
+    > & {
+      instruction: string;
+      ownerId: string;
+      projectId: string;
+    }
+): Promise<MajdSovereignCreationResult> {
+  const startedAt =
+    Date.now();
+
+  const instruction =
+    input.instruction
+      .trim();
+
+  if (!instruction) {
+    throw new Error(
+      "MAJD sovereign instruction is required."
+    );
+  }
+
+  const projectId =
+    safeProjectId(
+      input.projectId
+    );
+
+  const productType =
+    input.productType ??
+    detectProductType(
+      instruction
+    );
+
+  const request:
+    MajdSovereignCreationRequest = {
+      id:
+        input.id ??
+        `majd-request-${Date.now()}`,
+
+      ownerId:
+        input.ownerId,
+
+      instruction,
+
+      projectId,
+
+      productType,
+
+      autonomous:
+        input.autonomous ??
+        true,
+
+      legalStage:
+        input.legalStage ??
+        MAJD_LEGAL_ENTITY_LIFECYCLE
+          .current,
+
+      createdAt:
+        input.createdAt ??
+        Date.now(),
+
+      metadata:
+        input.metadata
+          ? {
+              ...input.metadata
+            }
+          : undefined
+    };
+
+  const result:
+    MajdSovereignCreationResult = {
+      id:
+        `majd-result-${Date.now()}`,
+
+      projectId,
+
+      productType,
+
+      state:
+        "RECEIVED",
+
+      success:
+        false,
+
+      playable:
+        false,
+
+      files: [],
+
+      repairAttempts:
+        0,
+
+      errors: [],
+
+      startedAt,
+
+      completedAt:
+        startedAt
+    };
+
+  try {
+    result.state =
+      "UNDERSTANDING";
+
+    const plan =
+      createUniversalPlan(
+        request
+      );
+
+    result.state =
+      "PLANNING";
+
+    const projectRoot =
+      gameRoot(
+        projectId
+      );
+
+    const workspaceRoot =
+      gameWorkspace(
+        projectId
+      );
+
+    const buildRoot =
+      gameBuildDirectory(
+        projectId
+      );
+
+    await fs.mkdir(
+      workspaceRoot,
+      {
+        recursive:
+          true
+      }
+    );
+
+    await fs.mkdir(
+      buildRoot,
+      {
+        recursive:
+          true
+      }
+    );
+
+    result.state =
+      "GENERATING";
+
+    if (
+      productType ===
+      "GAME"
+    ) {
+      const title =
+        /صقيع|frozen|snow/i
+          .test(
+            instruction
+          )
+          ? "مجد: النجاة في الصقيع"
+          : "MAJD Sovereign Game";
+
+      result.files.push(
+        await writeMajdPhysicalFile(
+          buildRoot,
+          "index.html",
+          createMajdIndexSource(
+            title
+          ),
+          "BUILD"
+        ),
+
+        await writeMajdPhysicalFile(
+          buildRoot,
+          "styles.css",
+          createMajdStylesSource(),
+          "BUILD"
+        ),
+
+        await writeMajdPhysicalFile(
+          buildRoot,
+          "majd-engine.js",
+          createMajdEngineSource(),
+          "SOURCE"
+        ),
+
+        await writeMajdPhysicalFile(
+          buildRoot,
+          "majd-world.js",
+          createMajdWorldSource(
+            instruction
+          ),
+          "SOURCE"
+        ),
+
+        await writeMajdPhysicalFile(
+          buildRoot,
+          "game.js",
+          createMajdGameRuntimeSource(
+            instruction
+          ),
+          "SOURCE"
+        )
+      );
+    }
+
+    result.files.push(
+      await writeMajdPhysicalFile(
+        buildRoot,
+        "majd-plan.json",
+        JSON.stringify(
+          plan,
+          null,
+          2
+        ),
+        "CONFIG"
+      ),
+
+      await writeMajdPhysicalFile(
+        buildRoot,
+        "majd-rights.json",
+        createMajdRightsManifest(
+          request
+        ),
+        "RIGHTS"
+      )
+    );
+
+    result.state =
+      "TESTING";
+
+    const rights =
+      inspectMajdRights(
+        request,
+        result.files
+      );
+
+    result.rights =
+      rights;
+
+    if (!rights.success) {
+      throw new Error(
+        rights.errors.join(
+          "; "
+        )
+      );
+    }
+
+    result.state =
+      "QUALITY_CHECK";
+
+    const quality =
+      await verifyMajdBuild(
+        buildRoot,
+        result.files
+      );
+
+    result.quality =
+      quality;
+
+    /*
+     * IMPORTANT:
+     * If assets/visual generation is not yet
+     * connected, this MUST block rather than
+     * publish rectangles/triangles and call it
+     * production.
+     */
+    if (!quality.success) {
+      result.state =
+        "BLOCKED";
+
+      result.errors.push(
+        ...quality.errors
+      );
+
+      result.buildPath =
+        buildRoot;
+
+      result.completedAt =
+        Date.now();
+
+      return result;
+    }
+
+    result.state =
+      "VERIFYING";
+
+    const indexReady =
+      await fileExists(
+        path.join(
+          buildRoot,
+          "index.html"
+        )
+      );
+
+    const runtimeReady =
+      await fileExists(
+        path.join(
+          buildRoot,
+          "game.js"
+        )
+      );
+
+    if (
+      !indexReady ||
+      !runtimeReady
+    ) {
+      throw new Error(
+        "MAJD real build verification failed."
+      );
+    }
+
+    result.buildPath =
+      buildRoot;
+
+    result.launchTarget =
+      path.join(
+        buildRoot,
+        "index.html"
+      );
+
+    result.playable =
+      productType ===
+        "GAME";
+
+    result.success =
+      true;
+
+    result.state =
+      "READY";
+
+    result.completedAt =
+      Date.now();
+
+    return result;
+  } catch (error) {
+    result.state =
+      "FAILED";
+
+    result.success =
+      false;
+
+    result.playable =
+      false;
+
+    result.errors.push(
+      error instanceof Error
+        ? error.message
+        : String(error)
+    );
+
+    result.completedAt =
+      Date.now();
+
+    return result;
+  }
+}
+async buildGame(
+  command
+): Promise<SovereignRuntimeBuildResult>
+  const majdResult =
+  await executeMajdSovereignCreation({
+    ownerId:
+      "OWNER-MAJD",
+
+    projectId:
+      commandProjectId(
+        command
+      ),
+
+    instruction:
+      command.instruction,
+
+    productType:
+      "GAME",
+
+    autonomous:
+      true
+  });majdResult.success === true &&
+majdResult.state === "READY" &&
+majdResult.playable === true &&
+typeof majdResult.buildPath === "string" &&
+typeof majdResult.launchTarget === "string"
