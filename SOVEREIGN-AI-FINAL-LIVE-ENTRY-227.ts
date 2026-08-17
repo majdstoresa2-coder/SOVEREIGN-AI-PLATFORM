@@ -10,7 +10,7 @@ import {
 } from "./SOVEREIGN-AI-REAL-COMPONENT-BINDINGS-224.ts";
 
 import {
-  loadAllSovereignRealModules
+  executeSovereignLiveGate
 } from "./SOVEREIGN-AI-LIVE-EXECUTION-226.ts";
 
 import type {
@@ -30,6 +30,7 @@ export interface SovereignFinalLiveEntryOptions {
 export interface SovereignFinalLiveEntryResult {
   success: boolean;
   modulesLoaded: boolean;
+  instancesVerified: boolean;
   runtimeStarted: boolean;
   ready: boolean;
   state: string;
@@ -80,16 +81,16 @@ export class SovereignAIFinalLiveEntry {
     );
 
     // ========================================================
-    // STEP 1 — LOAD REAL MODULES
+    // STEP 1 — EXECUTE REAL LIVE GATE
     // ========================================================
 
-    const moduleResult =
-      await loadAllSovereignRealModules();
+    const liveGate =
+      await executeSovereignLiveGate();
 
-    if (!moduleResult.success) {
+    if (!liveGate.success) {
       for (
         const module of
-          moduleResult.modules
+          liveGate.modules
       ) {
         if (
           !module.loaded &&
@@ -101,22 +102,57 @@ export class SovereignAIFinalLiveEntry {
         }
       }
 
+      for (
+        const instance of
+          liveGate.instances
+      ) {
+        if (
+          (
+            !instance.resolved ||
+            !instance.methodAvailable
+          ) &&
+          instance.error
+        ) {
+          errors.push(
+            `${instance.component}: ${instance.error}`
+          );
+        }
+      }
+
       return {
-        success: false,
-        modulesLoaded: false,
-        runtimeStarted: false,
-        ready: false,
+        success:
+          false,
+
+        modulesLoaded:
+          liveGate.failed === 0,
+
+        instancesVerified:
+          liveGate.instancesFailed === 0,
+
+        runtimeStarted:
+          false,
+
+        ready:
+          false,
+
         state:
-          "MODULE_LOADING_FAILED",
+          "LIVE_GATE_FAILED",
+
         errors,
+
         startedAt,
+
         completedAt:
           Date.now()
       };
     }
 
     console.log(
-      `REAL MODULES LOADED: ${moduleResult.loaded}/${moduleResult.total}`
+      `REAL MODULES LOADED: ${liveGate.loaded}/${liveGate.total}`
+    );
+
+    console.log(
+      `REAL INSTANCES VERIFIED: ${liveGate.instancesResolved}/${liveGate.instancesTotal}`
     );
 
     // ========================================================
@@ -140,10 +176,13 @@ export class SovereignAIFinalLiveEntry {
       );
 
     if (
-      launch.state !== "RUNNING" ||
+      launch.state !==
+        "RUNNING" ||
       !launch.ready
     ) {
-      if (launch.error) {
+      if (
+        launch.error
+      ) {
         errors.push(
           launch.error
         );
@@ -159,18 +198,33 @@ export class SovereignAIFinalLiveEntry {
       }
 
       return {
-        success: false,
-        modulesLoaded: true,
+        success:
+          false,
+
+        modulesLoaded:
+          true,
+
+        instancesVerified:
+          true,
+
         runtimeStarted:
           runtime.isRunning(),
-        ready: false,
+
+        ready:
+          false,
+
         state:
           launch.state,
+
         liveTarget:
           launch.liveTarget,
+
         launch,
+
         errors,
+
         startedAt,
+
         completedAt:
           Date.now()
       };
@@ -180,23 +234,41 @@ export class SovereignAIFinalLiveEntry {
     // STEP 4 — FINAL LIVE CONFIRMATION
     // ========================================================
 
-    if (!runtime.isRunning()) {
+    if (
+      !runtime.isRunning()
+    ) {
       errors.push(
         "Final runtime reported ready but runtime is not active."
       );
 
       return {
-        success: false,
-        modulesLoaded: true,
-        runtimeStarted: false,
-        ready: false,
+        success:
+          false,
+
+        modulesLoaded:
+          true,
+
+        instancesVerified:
+          true,
+
+        runtimeStarted:
+          false,
+
+        ready:
+          false,
+
         state:
           "RUNTIME_NOT_ACTIVE",
+
         liveTarget:
           launch.liveTarget,
+
         launch,
+
         errors,
+
         startedAt,
+
         completedAt:
           Date.now()
       };
@@ -204,16 +276,33 @@ export class SovereignAIFinalLiveEntry {
 
     const result:
       SovereignFinalLiveEntryResult = {
-        success: true,
-        modulesLoaded: true,
-        runtimeStarted: true,
-        ready: true,
-        state: "RUNNING",
+        success:
+          true,
+
+        modulesLoaded:
+          true,
+
+        instancesVerified:
+          true,
+
+        runtimeStarted:
+          true,
+
+        ready:
+          true,
+
+        state:
+          "RUNNING",
+
         liveTarget:
           launch.liveTarget,
+
         launch,
+
         errors: [],
+
         startedAt,
+
         completedAt:
           Date.now()
       };
@@ -224,6 +313,14 @@ export class SovereignAIFinalLiveEntry {
 
     console.log(
       "SOVEREIGN FINAL LIVE ENTRY: SUCCESS"
+    );
+
+    console.log(
+      "MODULES LOADED: true"
+    );
+
+    console.log(
+      "INSTANCES VERIFIED: true"
     );
 
     console.log(
