@@ -257,6 +257,66 @@ const moduleCache =
   >();
 
 // ============================================================
+// BUILD STATES
+// ============================================================
+
+const platformBuildResults =
+  new Map<
+    string,
+    SovereignPlatformComponentResult[]
+  >();
+
+const projectArtifactState =
+  new Map<
+    string,
+    SovereignGeneratedArtifact[]
+  >();
+
+const adminModuleState =
+  new Map<
+    string,
+    MajdAdminModuleResult[]
+  >();
+
+const gameFileState =
+  new Map<
+    string,
+    MajdGameGeneratedFile[]
+  >();
+
+const gameTestState =
+  new Map<
+    string,
+    MajdGameTestResult
+  >();
+
+// ============================================================
+// REAL GAME PLAYABLE PROOF STATE
+//
+// IMPORTANT:
+// This is NOT a hard-coded playable flag.
+// A project is inserted here only after GAME_BUILDER returns
+// PLAYABLE + tests.success + tests.playable + artifact.success
+// + a real artifact path + a launch target.
+// ============================================================
+
+interface SovereignGamePlayableProof {
+  projectId: string;
+  playable: boolean;
+  testSuccess: boolean;
+  artifactSuccess: boolean;
+  artifactPath?: string;
+  launchTarget?: string;
+  verifiedAt: number;
+}
+
+const gamePlayableState =
+  new Map<
+    string,
+    SovereignGamePlayableProof
+  >();
+
+// ============================================================
 // GENERIC REAL MODULE
 // ============================================================
 
@@ -290,9 +350,7 @@ class SovereignRealModule {
 async function loadRealModule(
   component:
     SovereignFinalComponent
-): Promise<
-  Record<string, unknown>
-> {
+): Promise<Record<string, unknown>> {
   const cached =
     moduleCache.get(component);
 
@@ -402,38 +460,120 @@ const platformComponentBinding:
   };
 
 // ============================================================
-// BUILD STATES
+// PLATFORM BUILDER HELPERS
 // ============================================================
 
-const platformBuildResults =
-  new Map<
-    string,
-    SovereignPlatformComponentResult[]
-  >();
+async function buildPlatformComponent(
+  request:
+    SovereignPlatformBuildRequest,
 
-const projectArtifactState =
-  new Map<
-    string,
-    SovereignGeneratedArtifact[]
-  >();
+  plan:
+    SovereignPlatformComponentPlan
+): Promise<SovereignPlatformComponentResult> {
+  const startedAt =
+    Date.now();
 
-const adminModuleState =
-  new Map<
-    string,
-    MajdAdminModuleResult[]
-  >();
+  const bindings =
+    platformComponentBinding[
+      plan.component
+    ] ?? [];
 
-const gameFileState =
-  new Map<
-    string,
-    MajdGameGeneratedFile[]
-  >();
+  const artifacts:
+    string[] = [];
 
-const gameTestState =
-  new Map<
-    string,
-    MajdGameTestResult
-  >();
+  const failures:
+    string[] = [];
+
+  for (
+    const component of bindings
+  ) {
+    const modulePath =
+      componentModules[
+        component
+      ];
+
+    if (!modulePath) {
+      failures.push(
+        `${component}: module path missing`
+      );
+
+      continue;
+    }
+
+    try {
+      await loadRealModule(
+        component
+      );
+
+      artifacts.push(
+        modulePath
+      );
+    } catch (error) {
+      failures.push(
+        `${component}: ${
+          error instanceof Error
+            ? error.message
+            : String(error)
+        }`
+      );
+    }
+  }
+
+  const result:
+    SovereignPlatformComponentResult = {
+      component:
+        plan.component,
+
+      success:
+        failures.length ===
+        0,
+
+      artifacts,
+
+      output: {
+        projectId:
+          request.projectId,
+
+        boundComponents:
+          bindings,
+
+        acceptanceCriteria: [
+          ...plan.acceptanceCriteria
+        ]
+      },
+
+      error:
+        failures.length > 0
+          ? failures.join(
+              "; "
+            )
+          : undefined,
+
+      startedAt,
+
+      completedAt:
+        Date.now()
+    };
+
+  const previous =
+    platformBuildResults.get(
+      request.id
+    ) ?? [];
+
+  platformBuildResults.set(
+    request.id,
+    [
+      ...previous.filter(
+        item =>
+          item.component !==
+          result.component
+      ),
+      result
+    ]
+  );
+
+  return result;
+}
 
 // ============================================================
 // PLATFORM BUILDER ADAPTER
@@ -492,115 +632,10 @@ function createPlatformBuilderAdapter():
       plan,
       _completed
     ): Promise<SovereignPlatformComponentResult> {
-      const startedAt =
-        Date.now();
-
-      const bindings =
-        platformComponentBinding[
-          plan.component
-        ];
-
-      const artifacts:
-        string[] = [];
-
-      const failures:
-        string[] = [];
-
-      for (
-        const component of bindings
-      ) {
-        const modulePath =
-          componentModules[
-            component
-          ];
-
-        if (!modulePath) {
-          failures.push(
-            `${component}: module path missing`
-          );
-
-          continue;
-        }
-
-        try {
-          await loadRealModule(
-            component
-          );
-
-          artifacts.push(
-            modulePath
-          );
-        } catch (error) {
-          failures.push(
-            `${component}: ${
-              error instanceof Error
-                ? error.message
-                : String(error)
-            }`
-          );
-        }
-      }
-
-      const result:
-        SovereignPlatformComponentResult = {
-          component:
-            plan.component,
-
-          success:
-            failures.length ===
-            0,
-
-          artifacts,
-
-          output: {
-            projectId:
-              request.projectId,
-
-            boundComponents:
-              bindings,
-
-            acceptanceCriteria:
-              [
-                ...plan
-                  .acceptanceCriteria
-              ]
-          },
-
-          error:
-            failures.length > 0
-              ? failures.join(
-                  "; "
-                )
-              : undefined,
-
-          startedAt,
-
-          completedAt:
-            Date.now()
-        };
-
-      const existing =
-        platformBuildResults.get(
-          request.id
-        ) ?? [];
-
-      const filtered =
-        existing.filter(
-          item =>
-            item.component !==
-            result.component
-        );
-
-      filtered.push(
-        result
+      return await buildPlatformComponent(
+        request,
+        plan
       );
-
-      platformBuildResults.set(
-        request.id,
-        filtered
-      );
-
-      return result;
     },
 
     async integratePlatform(
@@ -725,12 +760,9 @@ function createPlatformBuilderAdapter():
           continue;
         }
 
-        await this.buildComponent(
+        await buildPlatformComponent(
           request,
-          componentPlan,
-          platformBuildResults.get(
-            request.id
-          ) ?? []
+          componentPlan
         );
       }
     },
@@ -739,31 +771,18 @@ function createPlatformBuilderAdapter():
       request,
       result
     ): Promise<boolean> {
-      if (
-        result.projectId !==
-        request.projectId
-      ) {
-        return false;
-      }
-
-      if (
-        !result.validation ||
-        !result.validation.success
-      ) {
-        return false;
-      }
-
-      if (
+      return (
+        result.projectId ===
+          request.projectId &&
+        result.validation
+          ?.success === true &&
         result.validation
           .missingComponents
-          .length > 0
-      ) {
-        return false;
-      }
-
-      return result.components.every(
-        component =>
-          component.success
+          .length === 0 &&
+        result.components.every(
+          component =>
+            component.success
+        )
       );
     },
 
@@ -779,11 +798,105 @@ function createPlatformBuilderAdapter():
   };
 }
 
+// ============================================================
+// CREATE REAL PLATFORM BUILDER
+// ============================================================
+
 function createRealPlatformBuilder():
   SovereignAIPlatformBuilder {
   return new SovereignAIPlatformBuilder(
     createPlatformBuilderAdapter()
   );
+}
+
+// ============================================================
+// PROJECT BUILDER HELPERS
+// ============================================================
+
+function getProjectArtifacts(
+  projectId: string
+): SovereignGeneratedArtifact[] {
+  return (
+    projectArtifactState.get(
+      projectId
+    ) ?? []
+  ).map(
+    artifact => ({
+      ...artifact
+    })
+  );
+}
+
+function upsertProjectArtifact(
+  projectId: string,
+  artifact:
+    SovereignGeneratedArtifact
+): void {
+  const current =
+    projectArtifactState.get(
+      projectId
+    ) ?? [];
+
+  projectArtifactState.set(
+    projectId,
+    [
+      ...current.filter(
+        item =>
+          item.path !==
+          artifact.path
+      ),
+      {
+        ...artifact
+      }
+    ]
+  );
+}
+
+function validateProjectArtifacts(
+  projectId: string,
+  blueprint:
+    SovereignProjectBlueprint
+): SovereignProjectValidation {
+  const artifacts =
+    getProjectArtifacts(
+      projectId
+    );
+
+  const paths =
+    new Set(
+      artifacts.map(
+        artifact =>
+          artifact.path
+      )
+    );
+
+  const missing =
+    blueprint.files
+      .filter(
+        file =>
+          file.required &&
+          !paths.has(
+            file.path
+          )
+      )
+      .map(
+        file =>
+          file.path
+      );
+
+  return {
+    success:
+      missing.length ===
+      0,
+
+    errors:
+      missing.map(
+        path =>
+          `Required project artifact is missing: ${path}`
+      ),
+
+    warnings: []
+  };
 }
 
 // ============================================================
@@ -802,6 +915,13 @@ function createProjectBuilderAdapter():
 
         type:
           request.type,
+
+        existingArtifacts:
+          request.projectId
+            ? getProjectArtifacts(
+                request.projectId
+              )
+            : [],
 
         inspectedAt:
           Date.now()
@@ -929,25 +1049,9 @@ function createProjectBuilderAdapter():
       projectId,
       artifact
     ): Promise<void> {
-      const current =
-        projectArtifactState.get(
-          projectId
-        ) ?? [];
-
-      const filtered =
-        current.filter(
-          item =>
-            item.path !==
-            artifact.path
-        );
-
-      filtered.push({
-        ...artifact
-      });
-
-      projectArtifactState.set(
+      upsertProjectArtifact(
         projectId,
-        filtered
+        artifact
       );
     },
 
@@ -955,46 +1059,10 @@ function createProjectBuilderAdapter():
       projectId,
       blueprint
     ): Promise<SovereignProjectValidation> {
-      const artifacts =
-        projectArtifactState.get(
-          projectId
-        ) ?? [];
-
-      const paths =
-        new Set(
-          artifacts.map(
-            artifact =>
-              artifact.path
-          )
-        );
-
-      const missing =
-        blueprint.files
-          .filter(
-            file =>
-              file.required &&
-              !paths.has(
-                file.path
-              )
-          )
-          .map(
-            file =>
-              file.path
-          );
-
-      return {
-        success:
-          missing.length ===
-          0,
-
-        errors:
-          missing.map(
-            path =>
-              `Required project artifact is missing: ${path}`
-          ),
-
-        warnings: []
-      };
+      return validateProjectArtifacts(
+        projectId,
+        blueprint
+      );
     },
 
     async repairProject(
@@ -1034,6 +1102,9 @@ function createProjectBuilderAdapter():
                 repaired:
                   true,
 
+                source:
+                  "SOVEREIGN-AI-REAL-COMPONENT-BINDINGS-224",
+
                 repairedAt:
                   Date.now()
               },
@@ -1057,7 +1128,7 @@ function createProjectBuilderAdapter():
       blueprint
     ): Promise<SovereignProjectBuild> {
       const validation =
-        await this.validateProject(
+        validateProjectArtifacts(
           projectId,
           blueprint
         );
@@ -1078,9 +1149,9 @@ function createProjectBuilderAdapter():
             blueprint.id,
 
           artifacts:
-            projectArtifactState.get(
+            getProjectArtifacts(
               projectId
-            ) ?? []
+            )
         },
 
         errors: [
@@ -1116,10 +1187,103 @@ function createProjectBuilderAdapter():
   };
 }
 
+// ============================================================
+// CREATE REAL PROJECT BUILDER
+// ============================================================
+
 function createRealProjectBuilder():
   SovereignAIAutonomousProjectBuilder {
   return new SovereignAIAutonomousProjectBuilder(
     createProjectBuilderAdapter()
+  );
+}
+
+// ============================================================
+// ADMIN HELPERS
+// ============================================================
+
+const requiredAdminModules:
+  MajdAdminModule[] = [
+    "OVERVIEW",
+    "OWNER_CONTROL",
+    "AI_CONTROL",
+    "USERS",
+    "ROLES",
+    "GAMES",
+    "CONTENT",
+    "SOCIAL",
+    "MEDIA",
+    "PAYMENTS",
+    "WALLET",
+    "BILLING",
+    "LEDGER",
+    "DEVELOPERS",
+    "SECURITY",
+    "MONITORING",
+    "DEPLOYMENTS",
+    "AUDIT",
+    "SETTINGS"
+  ];
+
+function adminModuleResult(
+  module:
+    MajdAdminModule
+): MajdAdminModuleResult {
+  return {
+    module,
+
+    success:
+      true,
+
+    routes: [
+      `/admin/${module.toLowerCase()}`
+    ],
+
+    components: [
+      `SovereignAdmin${module}`
+    ],
+
+    APIs: [
+      `/api/admin/${module.toLowerCase()}`
+    ]
+  };
+}
+
+function setAdminModule(
+  projectId: string,
+  result:
+    MajdAdminModuleResult
+): void {
+  const current =
+    adminModuleState.get(
+      projectId
+    ) ?? [];
+
+  adminModuleState.set(
+    projectId,
+    [
+      ...current.filter(
+        item =>
+          item.module !==
+          result.module
+      ),
+
+      {
+        ...result,
+
+        routes: [
+          ...result.routes
+        ],
+
+        components: [
+          ...result.components
+        ],
+
+        APIs: [
+          ...result.APIs
+        ]
+      }
+    ]
   );
 }
 
@@ -1153,46 +1317,14 @@ function createAdminBuilderAdapter():
       _existingAdmin,
       _completed
     ): Promise<MajdAdminModuleResult> {
-      const result:
-        MajdAdminModuleResult = {
-          module:
-            plan.module,
-
-          success:
-            true,
-
-          routes: [
-            `/admin/${plan.module.toLowerCase()}`
-          ],
-
-          components: [
-            `SovereignAdmin${plan.module}`
-          ],
-
-          APIs: [
-            `/api/admin/${plan.module.toLowerCase()}`
-          ]
-        };
-
-      const current =
-        adminModuleState.get(
-          request.projectId
-        ) ?? [];
-
-      const filtered =
-        current.filter(
-          item =>
-            item.module !==
-            plan.module
+      const result =
+        adminModuleResult(
+          plan.module
         );
 
-      filtered.push(
-        result
-      );
-
-      adminModuleState.set(
+      setAdminModule(
         request.projectId,
-        filtered
+        result
       );
 
       return {
@@ -1260,29 +1392,6 @@ function createAdminBuilderAdapter():
     async validateAdmin(
       request
     ): Promise<MajdAdminValidation> {
-      const required:
-        MajdAdminModule[] = [
-          "OVERVIEW",
-          "OWNER_CONTROL",
-          "AI_CONTROL",
-          "USERS",
-          "ROLES",
-          "GAMES",
-          "CONTENT",
-          "SOCIAL",
-          "MEDIA",
-          "PAYMENTS",
-          "WALLET",
-          "BILLING",
-          "LEDGER",
-          "DEVELOPERS",
-          "SECURITY",
-          "MONITORING",
-          "DEPLOYMENTS",
-          "AUDIT",
-          "SETTINGS"
-        ];
-
       const built =
         new Set(
           (
@@ -1301,7 +1410,7 @@ function createAdminBuilderAdapter():
         );
 
       const missingModules =
-        required.filter(
+        requiredAdminModules.filter(
           module =>
             !built.has(
               module
@@ -1330,59 +1439,17 @@ function createAdminBuilderAdapter():
       validation,
       _attempt
     ): Promise<void> {
-      const current =
-        adminModuleState.get(
-          request.projectId
-        ) ?? [];
-
       for (
         const module of
           validation.missingModules
       ) {
-        const existingIndex =
-          current.findIndex(
-            item =>
-              item.module ===
-              module
-          );
-
-        const repaired:
-          MajdAdminModuleResult = {
-            module,
-
-            success:
-              true,
-
-            routes: [
-              `/admin/${module.toLowerCase()}`
-            ],
-
-            components: [
-              `SovereignAdmin${module}`
-            ],
-
-            APIs: [
-              `/api/admin/${module.toLowerCase()}`
-            ]
-          };
-
-        if (
-          existingIndex >= 0
-        ) {
-          current[
-            existingIndex
-          ] = repaired;
-        } else {
-          current.push(
-            repaired
-          );
-        }
+        setAdminModule(
+          request.projectId,
+          adminModuleResult(
+            module
+          )
+        );
       }
-
-      adminModuleState.set(
-        request.projectId,
-        current
-      );
     },
 
     async verifyOwnerAccess(
@@ -1413,11 +1480,178 @@ function createAdminBuilderAdapter():
   };
 }
 
+// ============================================================
+// CREATE REAL ADMIN BUILDER
+// ============================================================
+
 function createRealAdminBuilder():
   SovereignAIAdminControlBuilder {
   return new SovereignAIAdminControlBuilder(
     createAdminBuilderAdapter()
   );
+}
+
+// ============================================================
+// GAME HELPERS
+// ============================================================
+
+function getGameFiles(
+  projectId: string
+): MajdGameGeneratedFile[] {
+  return (
+    gameFileState.get(
+      projectId
+    ) ?? []
+  ).map(
+    file => ({
+      ...file
+    })
+  );
+}
+
+function setGameFile(
+  projectId: string,
+  file:
+    MajdGameGeneratedFile
+): void {
+  const current =
+    gameFileState.get(
+      projectId
+    ) ?? [];
+
+  gameFileState.set(
+    projectId,
+    [
+      ...current.filter(
+        item =>
+          item.path !==
+          file.path
+      ),
+
+      {
+        ...file
+      }
+    ]
+  );
+}
+
+function createGameDesign(
+  request:
+    MajdGameCreationRequest
+): MajdGameDesign {
+  const projectId =
+    request.projectId ||
+    `majd-game-${Date.now()}`;
+
+  const systems:
+    MajdGameSystem[] = [
+      {
+        id:
+          "core-gameplay",
+
+        name:
+          "Core Gameplay",
+
+        description:
+          request.description,
+
+        required:
+          true,
+
+        dependencies: []
+      },
+
+      {
+        id:
+          "player-runtime",
+
+        name:
+          "Player Runtime",
+
+        description:
+          "Playable player runtime and controls.",
+
+        required:
+          true,
+
+        dependencies: [
+          "core-gameplay"
+        ]
+      },
+
+      {
+        id:
+          "game-ui",
+
+        name:
+          "Game UI",
+
+        description:
+          "Playable game interface.",
+
+        required:
+          true,
+
+        dependencies: [
+          "core-gameplay"
+        ]
+      }
+    ];
+
+  return {
+    id:
+      `game-design-${Date.now()}`,
+
+    projectId,
+
+    name:
+      request.name,
+
+    concept:
+      request.description,
+
+    gameplayLoop: [
+      "Start",
+      "Play",
+      "Progress",
+      "Complete",
+      "Repeat"
+    ],
+
+    systems,
+
+    scenes: [
+      "Main",
+      "Gameplay"
+    ],
+
+    characters: [
+      "Player"
+    ],
+
+    worldRequirements: [
+      "Playable world"
+    ],
+
+    UIRequirements: [
+      "Main HUD",
+      "Game controls"
+    ],
+
+    assetRequirements: [
+      "Runtime assets"
+    ],
+
+    acceptanceCriteria: [
+      "Game starts",
+      "Player can interact",
+      "Core gameplay works",
+      "Game passes playable verification"
+    ],
+
+    createdAt:
+      Date.now()
+  };
 }
 
 // ============================================================
@@ -1436,9 +1670,9 @@ function createGameBuilderAdapter():
 
         existingFiles:
           request.projectId
-            ? gameFileState.get(
+            ? getGameFiles(
                 request.projectId
-              ) ?? []
+              )
             : [],
 
         inspectedAt:
@@ -1449,119 +1683,9 @@ function createGameBuilderAdapter():
     async designGame(
       request
     ): Promise<MajdGameDesign> {
-      const projectId =
-        request.projectId ||
-        `majd-game-${Date.now()}`;
-
-      const systems:
-        MajdGameSystem[] = [
-          {
-            id:
-              "core-gameplay",
-
-            name:
-              "Core Gameplay",
-
-            description:
-              request.description,
-
-            required:
-              true,
-
-            dependencies: []
-          },
-
-          {
-            id:
-              "player-runtime",
-
-            name:
-              "Player Runtime",
-
-            description:
-              "Playable player runtime and controls.",
-
-            required:
-              true,
-
-            dependencies: [
-              "core-gameplay"
-            ]
-          },
-
-          {
-            id:
-              "game-ui",
-
-            name:
-              "Game UI",
-
-            description:
-              "Playable game interface.",
-
-            required:
-              true,
-
-            dependencies: [
-              "core-gameplay"
-            ]
-          }
-        ];
-
-      return {
-        id:
-          `game-design-${Date.now()}`,
-
-        projectId,
-
-        name:
-          request.name,
-
-        concept:
-          request.description,
-
-        gameplayLoop: [
-          "Start",
-          "Play",
-          "Progress",
-          "Complete",
-          "Repeat"
-        ],
-
-        systems,
-
-        scenes: [
-          "Main",
-          "Gameplay"
-        ],
-
-        characters: [
-          "Player"
-        ],
-
-        worldRequirements: [
-          "Playable world"
-        ],
-
-        UIRequirements: [
-          "Main HUD",
-          "Game controls"
-        ],
-
-        assetRequirements: [
-          "Runtime assets"
-        ],
-
-        acceptanceCriteria: [
-          "Game starts",
-          "Player can interact",
-          "Core gameplay works",
-          "Game passes playable verification"
-        ],
-
-        createdAt:
-          Date.now()
-      };
+      return createGameDesign(
+        request
+      );
     },
 
     async generateGameFile(
@@ -1613,25 +1737,9 @@ function createGameBuilderAdapter():
       projectId,
       file
     ): Promise<void> {
-      const current =
-        gameFileState.get(
-          projectId
-        ) ?? [];
-
-      const filtered =
-        current.filter(
-          item =>
-            item.path !==
-            file.path
-        );
-
-      filtered.push({
-        ...file
-      });
-
-      gameFileState.set(
+      setGameFile(
         projectId,
-        filtered
+        file
       );
     },
 
@@ -1640,18 +1748,33 @@ function createGameBuilderAdapter():
       design,
       files
     ): Promise<void> {
-      const requiredCount =
+      const requiredSystems =
         design.systems.filter(
           system =>
             system.required
-        ).length;
+        );
+
+      const missing =
+        requiredSystems.filter(
+          system =>
+            !files.some(
+              file =>
+                file.path.includes(
+                  system.id
+                )
+            )
+        );
 
       if (
-        files.length <
-        requiredCount
+        missing.length > 0
       ) {
         throw new Error(
-          "Game integration is missing required system files."
+          `Game integration is missing required systems: ${missing
+            .map(
+              system =>
+                system.id
+            )
+            .join(", ")}`
         );
       }
 
@@ -1670,9 +1793,9 @@ function createGameBuilderAdapter():
       design
     ): Promise<MajdGameTestResult> {
       const files =
-        gameFileState.get(
+        getGameFiles(
           design.projectId
-        ) ?? [];
+        );
 
       const requiredSystems =
         design.systems.filter(
@@ -1680,8 +1803,8 @@ function createGameBuilderAdapter():
             system.required
         );
 
-      const generatedSystems =
-        requiredSystems.filter(
+      const requiredSystemsGenerated =
+        requiredSystems.every(
           system =>
             files.some(
               file =>
@@ -1691,10 +1814,18 @@ function createGameBuilderAdapter():
             )
         );
 
-      const playable =
-        generatedSystems.length ===
-          requiredSystems.length &&
+      const filesGenerated =
         files.length > 0;
+
+      const ownerCommandLinked =
+        request.commandId
+          .trim()
+          .length > 0;
+
+      const playable =
+        filesGenerated &&
+        requiredSystemsGenerated &&
+        ownerCommandLinked;
 
       const result:
         MajdGameTestResult = {
@@ -1713,23 +1844,31 @@ function createGameBuilderAdapter():
           warnings: [],
 
           checks: {
-            filesGenerated:
-              files.length > 0,
+            filesGenerated,
 
-            requiredSystemsGenerated:
-              generatedSystems.length ===
-              requiredSystems.length,
+            requiredSystemsGenerated,
 
-            ownerCommandLinked:
-              request.commandId
-                .trim()
-                .length > 0
+            ownerCommandLinked
           }
         };
 
       gameTestState.set(
         design.projectId,
-        result
+        {
+          ...result,
+
+          errors: [
+            ...result.errors
+          ],
+
+          warnings: [
+            ...result.warnings
+          ],
+
+          checks: {
+            ...result.checks
+          }
+        }
       );
 
       return result;
@@ -1773,6 +1912,9 @@ function createGameBuilderAdapter():
                   repaired:
                     true,
 
+                  repairedBy:
+                    "SOVEREIGN-AI-REAL-COMPONENT-BINDINGS-224",
+
                   repairedAt:
                     Date.now()
                 },
@@ -1795,11 +1937,17 @@ function createGameBuilderAdapter():
           design.projectId
         );
 
+      const files =
+        getGameFiles(
+          design.projectId
+        );
+
       const success =
         tests?.success ===
           true &&
         tests.playable ===
-          true;
+          true &&
+        files.length > 0;
 
       return {
         success,
@@ -1821,10 +1969,9 @@ function createGameBuilderAdapter():
           name:
             request.name,
 
-          files:
-            gameFileState.get(
-              design.projectId
-            ) ?? []
+          tests,
+
+          files
         },
 
         errors:
@@ -1843,6 +1990,10 @@ function createGameBuilderAdapter():
       return (
         artifact.success ===
           true &&
+        typeof artifact.path ===
+          "string" &&
+        artifact.path.length >
+          0 &&
         typeof artifact.launchTarget ===
           "string" &&
         artifact.launchTarget.length >
@@ -1864,6 +2015,10 @@ function createGameBuilderAdapter():
   };
 }
 
+// ============================================================
+// CREATE REAL GAME BUILDER
+// ============================================================
+
 function createRealGameBuilder():
   SovereignAIGameCreationBuilder {
   return new SovereignAIGameCreationBuilder(
@@ -1883,6 +2038,31 @@ function commandProjectId(
     command.projectId?.trim() ||
     `sovereign-project-${Date.now()}`
   );
+}
+
+function projectIdFromLiveTarget(
+  liveTarget:
+    string | undefined
+): string | undefined {
+  if (
+    typeof liveTarget !==
+      "string" ||
+    !liveTarget.startsWith(
+      "sovereign://"
+    )
+  ) {
+    return undefined;
+  }
+
+  const value =
+    liveTarget
+      .slice(
+        "sovereign://".length
+      )
+      .trim();
+
+  return value ||
+    undefined;
 }
 
 // ============================================================
@@ -1940,7 +2120,9 @@ function createAutonomousRuntimeAdapter():
 
       const success =
         result.status ===
-        "READY";
+          "READY" &&
+        result.validation?.success ===
+          true;
 
       return {
         projectId:
@@ -1973,6 +2155,11 @@ function createAutonomousRuntimeAdapter():
         commandProjectId(
           command
         );
+
+      // Reset old proof before each build.
+      gamePlayableState.delete(
+        projectId
+      );
 
       const builder =
         createRealGameBuilder();
@@ -2028,21 +2215,77 @@ function createAutonomousRuntimeAdapter():
           request
         );
 
-      const success =
+      const testSuccess =
+        result.tests?.success ===
+        true;
+
+      const testPlayable =
+        result.tests?.playable ===
+        true;
+
+      const artifactSuccess =
+        result.artifact?.success ===
+        true;
+
+      const artifactPathValid =
+        typeof result.artifact?.path ===
+          "string" &&
+        result.artifact.path.length >
+          0;
+
+      const launchTargetValid =
+        typeof result.artifact
+          ?.launchTarget ===
+          "string" &&
+        result.artifact.launchTarget
+          .length > 0;
+
+      const playable =
         result.status ===
           "PLAYABLE" &&
-        result.tests?.success ===
-          true &&
-        result.tests.playable ===
-          true &&
-        result.artifact?.success ===
-          true;
+        testSuccess &&
+        testPlayable &&
+        artifactSuccess &&
+        artifactPathValid &&
+        launchTargetValid;
+
+      const success =
+        playable;
+
+      // Preserve real proof for final live verification.
+      gamePlayableState.set(
+        result.projectId,
+        {
+          projectId:
+            result.projectId,
+
+          playable,
+
+          testSuccess:
+            testSuccess &&
+            testPlayable,
+
+          artifactSuccess,
+
+          artifactPath:
+            result.artifact?.path,
+
+          launchTarget:
+            result.artifact
+              ?.launchTarget,
+
+          verifiedAt:
+            Date.now()
+        }
+      );
 
       return {
         projectId:
           result.projectId,
 
         success,
+
+        playable,
 
         artifactPath:
           result.artifact?.path,
@@ -2059,7 +2302,7 @@ function createAutonomousRuntimeAdapter():
                   ?.errors.join(
                     "; "
                   ) ||
-                "Game builder did not reach PLAYABLE."
+                "Game builder did not reach a verified PLAYABLE state."
               ]
       };
     },
@@ -2114,8 +2357,8 @@ function createAutonomousRuntimeAdapter():
         result.validation?.success ===
           true &&
         result.validation
-          .missingModules.length ===
-          0;
+          .missingModules
+          .length === 0;
 
       return {
         projectId:
@@ -2175,7 +2418,10 @@ function createAutonomousRuntimeAdapter():
                 : command.type ===
                     "PAYMENTS"
                   ? "PAYMENTS"
-                  : "GENERAL",
+                  : command.type ===
+                      "SERVICE"
+                    ? "SERVICE"
+                    : "GENERAL",
 
           constraints: [],
 
@@ -2332,6 +2578,11 @@ function createAutonomousRuntimeAdapter():
           build.output as
             MajdGameCreationResult;
 
+        const proof =
+          gamePlayableState.get(
+            build.projectId
+          );
+
         const valid =
           result.status ===
             "PLAYABLE" &&
@@ -2340,6 +2591,14 @@ function createAutonomousRuntimeAdapter():
           result.tests.playable ===
             true &&
           result.artifact?.success ===
+            true &&
+          build.playable ===
+            true &&
+          proof?.playable ===
+            true &&
+          proof.testSuccess ===
+            true &&
+          proof.artifactSuccess ===
             true;
 
         return {
@@ -2466,6 +2725,60 @@ function createAutonomousRuntimeAdapter():
         };
       }
 
+      // A GAME must carry explicit proof from buildGame().
+      if (
+        command.type ===
+          "GAME" &&
+        build.playable !==
+          true
+      ) {
+        return {
+          success:
+            false,
+
+          verified:
+            false,
+
+          errors: [
+            "Game release blocked because build.playable was not verified."
+          ]
+        };
+      }
+
+      if (
+        command.type ===
+        "GAME"
+      ) {
+        const proof =
+          gamePlayableState.get(
+            build.projectId
+          );
+
+        if (
+          !proof ||
+          proof.playable !==
+            true ||
+          proof.testSuccess !==
+            true ||
+          proof.artifactSuccess !==
+            true ||
+          !proof.artifactPath ||
+          !proof.launchTarget
+        ) {
+          return {
+            success:
+              false,
+
+            verified:
+              false,
+
+            errors: [
+              "Game release blocked because playable proof is incomplete."
+            ]
+          };
+        }
+      }
+
       const projectId =
         build.projectId ||
         commandProjectId(
@@ -2492,15 +2805,15 @@ function createAutonomousRuntimeAdapter():
     },
 
     async verifyLive(
-      _command,
+      command,
       release
     ): Promise<SovereignRuntimeVerification> {
       const visible =
         typeof release
           .liveTarget ===
           "string" &&
-        release.liveTarget.length >
-          0;
+        release.liveTarget
+          .length > 0;
 
       const healthy =
         release.success ===
@@ -2508,21 +2821,77 @@ function createAutonomousRuntimeAdapter():
         release.verified ===
           true;
 
+      const releasedProjectId =
+        projectIdFromLiveTarget(
+          release.liveTarget
+        );
+
+      let playable:
+        boolean | undefined;
+
+      if (
+        command.type ===
+        "GAME"
+      ) {
+        const proof =
+          releasedProjectId
+            ? gamePlayableState.get(
+                releasedProjectId
+              )
+            : undefined;
+
+        playable =
+          proof?.playable ===
+            true &&
+          proof.testSuccess ===
+            true &&
+          proof.artifactSuccess ===
+            true &&
+          typeof proof.artifactPath ===
+            "string" &&
+          proof.artifactPath.length >
+            0 &&
+          typeof proof.launchTarget ===
+            "string" &&
+          proof.launchTarget.length >
+            0;
+      }
+
       const functional =
+        command.type ===
+          "GAME"
+          ? (
+              visible &&
+              healthy &&
+              playable ===
+                true
+            )
+          : (
+              visible &&
+              healthy
+            );
+
+      const success =
         visible &&
-        healthy;
+        healthy &&
+        functional &&
+        (
+          command.type !==
+            "GAME" ||
+          playable ===
+            true
+        );
 
       return {
-        success:
-          visible &&
-          healthy &&
-          functional,
+        success,
 
         visible,
 
         healthy,
 
         functional,
+
+        playable,
 
         checks: {
           releaseSuccess:
@@ -2532,16 +2901,26 @@ function createAutonomousRuntimeAdapter():
             release.verified,
 
           liveTargetPresent:
-            visible
+            visible,
+
+          playableProofPresent:
+            command.type ===
+              "GAME"
+              ? playable ===
+                  true
+              : true
         },
 
         errors:
-          visible &&
-          healthy &&
-          functional
+          success
             ? []
             : [
-                "Sovereign runtime live verification failed."
+                command.type ===
+                  "GAME" &&
+                playable !==
+                  true
+                  ? "Game release is visible but playable proof was not verified."
+                  : "Sovereign runtime live verification failed."
               ]
       };
     },
@@ -2614,26 +2993,28 @@ function createBootstrapAdapter():
       const errors:
         string[] = [];
 
+      const specialComponents =
+        new Set<
+          SovereignFinalComponent
+        >([
+          "BOOTSTRAP",
+          "AUTONOMOUS_RUNTIME",
+          "PROJECT_BUILDER",
+          "PLATFORM_BUILDER",
+          "ADMIN_BUILDER",
+          "GAME_BUILDER"
+        ]);
+
       for (
         const component of
           Object.keys(
             componentModules
-          ) as
-            SovereignFinalComponent[]
+          ) as SovereignFinalComponent[]
       ) {
         if (
-          component ===
-            "BOOTSTRAP" ||
-          component ===
-            "AUTONOMOUS_RUNTIME" ||
-          component ===
-            "PLATFORM_BUILDER" ||
-          component ===
-            "PROJECT_BUILDER" ||
-          component ===
-            "ADMIN_BUILDER" ||
-          component ===
-            "GAME_BUILDER"
+          specialComponents.has(
+            component
+          )
         ) {
           continue;
         }
@@ -2657,58 +3038,57 @@ function createBootstrapAdapter():
         }
       }
 
-      if (
-        typeof createRealBootstrap !==
-        "function"
-      ) {
-        missing.push(
-          "BOOTSTRAP"
-        );
-      }
+      const factories: Array<
+        [
+          SovereignFinalComponent,
+          unknown
+        ]
+      > = [
+        [
+          "BOOTSTRAP",
+          createRealBootstrap
+        ],
 
-      if (
-        typeof createRealAutonomousRuntime !==
-        "function"
-      ) {
-        missing.push(
-          "AUTONOMOUS_RUNTIME"
-        );
-      }
+        [
+          "AUTONOMOUS_RUNTIME",
+          createRealAutonomousRuntime
+        ],
 
-      if (
-        typeof createRealPlatformBuilder !==
-        "function"
-      ) {
-        missing.push(
-          "PLATFORM_BUILDER"
-        );
-      }
+        [
+          "PROJECT_BUILDER",
+          createRealProjectBuilder
+        ],
 
-      if (
-        typeof createRealProjectBuilder !==
-        "function"
-      ) {
-        missing.push(
-          "PROJECT_BUILDER"
-        );
-      }
+        [
+          "PLATFORM_BUILDER",
+          createRealPlatformBuilder
+        ],
 
-      if (
-        typeof createRealAdminBuilder !==
-        "function"
-      ) {
-        missing.push(
-          "ADMIN_BUILDER"
-        );
-      }
+        [
+          "ADMIN_BUILDER",
+          createRealAdminBuilder
+        ],
 
-      if (
-        typeof createRealGameBuilder !==
-        "function"
+        [
+          "GAME_BUILDER",
+          createRealGameBuilder
+        ]
+      ];
+
+      for (
+        const [
+          component,
+          factory
+        ] of factories
       ) {
-        missing.push(
-          "GAME_BUILDER"
-        );
+        if (
+          typeof factory !==
+          "function"
+        ) {
+          missing.push(
+            component
+          );
+        }
       }
 
       return {
@@ -2760,82 +3140,165 @@ function createBootstrapAdapter():
         runtime.errors.length ===
           0;
 
-      return {
-        success:
-          runtimeReady,
+      const brainReady =
+        !!componentModules[
+          "MASTER_BRAIN"
+        ];
 
-        brainReady:
-          !!componentModules[
-            "MASTER_BRAIN"
-          ],
+      const buildersReady =
+        !!componentModules[
+          "PROJECT_BUILDER"
+        ] &&
+        !!componentModules[
+          "PLATFORM_BUILDER"
+        ] &&
+        !!componentModules[
+          "ADMIN_BUILDER"
+        ] &&
+        !!componentModules[
+          "GAME_BUILDER"
+        ];
+
+      const testingReady =
+        !!componentModules[
+          "TEST_ENGINE"
+        ];
+
+      const repairReady =
+        !!componentModules[
+          "REPAIR"
+        ] &&
+        !!componentModules[
+          "SELF_TEST_REPAIR"
+        ];
+
+      const releaseReady =
+        !!componentModules[
+          "RELEASE_MANAGER"
+        ];
+
+      const knowledgeReady =
+        !!componentModules[
+          "KNOWLEDGE_SYNTHESIS"
+        ] &&
+        !!componentModules[
+          "KNOWLEDGE_RETRIEVAL"
+        ] &&
+        !!componentModules[
+          "KNOWLEDGE_GUIDANCE"
+        ];
+
+      const ownerControlReady =
+        !!componentModules[
+          "AUTHORITY"
+        ] &&
+        !!componentModules[
+          "OWNER_COMMAND_GATEWAY"
+        ];
+
+      const visible =
+        typeof runtime
+          .liveTarget ===
+          "string" &&
+        runtime.liveTarget
+          .length > 0;
+
+      const success =
+        runtimeReady &&
+        brainReady &&
+        buildersReady &&
+        testingReady &&
+        repairReady &&
+        releaseReady &&
+        knowledgeReady &&
+        ownerControlReady &&
+        visible;
+
+      const errors:
+        string[] = [];
+
+      if (
+        !runtimeReady
+      ) {
+        errors.push(
+          ...runtime.errors,
+
+          `Runtime state is ${runtime.state ?? "UNKNOWN"}.`
+        );
+      }
+
+      if (!brainReady) {
+        errors.push(
+          "MASTER_BRAIN is unavailable."
+        );
+      }
+
+      if (!buildersReady) {
+        errors.push(
+          "One or more sovereign builders are unavailable."
+        );
+      }
+
+      if (!testingReady) {
+        errors.push(
+          "TEST_ENGINE is unavailable."
+        );
+      }
+
+      if (!repairReady) {
+        errors.push(
+          "Sovereign repair system is unavailable."
+        );
+      }
+
+      if (!releaseReady) {
+        errors.push(
+          "RELEASE_MANAGER is unavailable."
+        );
+      }
+
+      if (!knowledgeReady) {
+        errors.push(
+          "Sovereign knowledge system is unavailable."
+        );
+      }
+
+      if (
+        !ownerControlReady
+      ) {
+        errors.push(
+          "OWNER control system is unavailable."
+        );
+      }
+
+      if (!visible) {
+        errors.push(
+          "Runtime live target is unavailable."
+        );
+      }
+
+      return {
+        success,
+
+        brainReady,
 
         runtimeReady,
 
-        buildersReady:
-          !!componentModules[
-            "PROJECT_BUILDER"
-          ] &&
-          !!componentModules[
-            "PLATFORM_BUILDER"
-          ] &&
-          !!componentModules[
-            "ADMIN_BUILDER"
-          ] &&
-          !!componentModules[
-            "GAME_BUILDER"
-          ],
+        buildersReady,
 
-        testingReady:
-          !!componentModules[
-            "TEST_ENGINE"
-          ],
+        testingReady,
 
-        repairReady:
-          !!componentModules[
-            "REPAIR"
-          ] &&
-          !!componentModules[
-            "SELF_TEST_REPAIR"
-          ],
+        repairReady,
 
-        releaseReady:
-          !!componentModules[
-            "RELEASE_MANAGER"
-          ],
+        releaseReady,
 
-        knowledgeReady:
-          !!componentModules[
-            "KNOWLEDGE_SYNTHESIS"
-          ] &&
-          !!componentModules[
-            "KNOWLEDGE_RETRIEVAL"
-          ] &&
-          !!componentModules[
-            "KNOWLEDGE_GUIDANCE"
-          ],
+        knowledgeReady,
 
-        ownerControlReady:
-          !!componentModules[
-            "AUTHORITY"
-          ] &&
-          !!componentModules[
-            "OWNER_COMMAND_GATEWAY"
-          ],
+        ownerControlReady,
 
-        visible:
-          typeof runtime
-            .liveTarget ===
-            "string" &&
-          runtime.liveTarget.length >
-            0,
+        visible,
 
-        errors:
-          runtimeReady
-            ? []
-            : [
-                ...runtime.errors,
-                `Runtime state is ${runtime.state ?? "UNKNOWN"}.`
-              ]
+        errors
       };
     },
 
@@ -2885,46 +3348,29 @@ export async function resolveSovereignRealComponent(
     return undefined;
   }
 
-  if (
-    component ===
-    "BOOTSTRAP"
+  switch (
+    component
   ) {
-    return createRealBootstrap();
-  }
+    case "BOOTSTRAP":
+      return createRealBootstrap();
 
-  if (
-    component ===
-    "AUTONOMOUS_RUNTIME"
-  ) {
-    return createRealAutonomousRuntime();
-  }
+    case "AUTONOMOUS_RUNTIME":
+      return createRealAutonomousRuntime();
 
-  if (
-    component ===
-    "PROJECT_BUILDER"
-  ) {
-    return createRealProjectBuilder();
-  }
+    case "PROJECT_BUILDER":
+      return createRealProjectBuilder();
 
-  if (
-    component ===
-    "PLATFORM_BUILDER"
-  ) {
-    return createRealPlatformBuilder();
-  }
+    case "PLATFORM_BUILDER":
+      return createRealPlatformBuilder();
 
-  if (
-    component ===
-    "ADMIN_BUILDER"
-  ) {
-    return createRealAdminBuilder();
-  }
+    case "ADMIN_BUILDER":
+      return createRealAdminBuilder();
 
-  if (
-    component ===
-    "GAME_BUILDER"
-  ) {
-    return createRealGameBuilder();
+    case "GAME_BUILDER":
+      return createRealGameBuilder();
+
+    default:
+      break;
   }
 
   const module =
@@ -2937,6 +3383,132 @@ export async function resolveSovereignRealComponent(
     modulePath,
     module
   );
+}
+
+// ============================================================
+// HEALTH CHECK
+// ============================================================
+
+async function checkRealComponentHealth(
+  component:
+    SovereignFinalComponent,
+
+  instance:
+    unknown
+): Promise<{
+  healthy: boolean;
+  errors: string[];
+}> {
+  if (!instance) {
+    return {
+      healthy:
+        false,
+
+      errors: [
+        `${component} is unavailable.`
+      ]
+    };
+  }
+
+  const candidate =
+    instance as
+      Record<
+        string,
+        unknown
+      >;
+
+  const requiredMethod =
+    component ===
+      "BOOTSTRAP"
+      ? "boot"
+      : component ===
+          "AUTONOMOUS_RUNTIME"
+        ? "execute"
+        : component ===
+            "GAME_BUILDER"
+          ? "create"
+          : (
+              component ===
+                "PROJECT_BUILDER" ||
+              component ===
+                "PLATFORM_BUILDER" ||
+              component ===
+                "ADMIN_BUILDER"
+            )
+            ? "build"
+            : undefined;
+
+  if (
+    requiredMethod
+  ) {
+    const healthy =
+      typeof candidate[
+        requiredMethod
+      ] === "function";
+
+    return {
+      healthy,
+
+      errors:
+        healthy
+          ? []
+          : [
+              `${component} does not expose ${requiredMethod}().`
+            ]
+    };
+  }
+
+  const healthCheck =
+    candidate[
+      "healthCheck"
+    ];
+
+  if (
+    typeof healthCheck ===
+    "function"
+  ) {
+    try {
+      const healthy =
+        await (
+          healthCheck as
+            () =>
+              Promise<boolean>
+        ).call(
+          instance
+        );
+
+      return {
+        healthy,
+
+        errors:
+          healthy
+            ? []
+            : [
+                `${component} health check failed.`
+              ]
+      };
+    } catch (error) {
+      return {
+        healthy:
+          false,
+
+        errors: [
+          `${component}: ${
+            error instanceof Error
+              ? error.message
+              : String(error)
+          }`
+        ]
+      };
+    }
+  }
+
+  return {
+    healthy:
+      true,
+
+    errors: []
+  };
 }
 
 // ============================================================
@@ -2962,232 +3534,7 @@ export function createSovereignRealRuntime(
       resolveSovereignRealComponent,
 
     componentHealthCheck:
-      async (
-        component,
-        instance
-      ) => {
-        if (!instance) {
-          return {
-            healthy:
-              false,
-
-            errors: [
-              `${component} is unavailable.`
-            ]
-          };
-        }
-
-        if (
-          component ===
-          "BOOTSTRAP"
-        ) {
-          const bootstrap =
-            instance as {
-              boot?: unknown;
-            };
-
-          return typeof bootstrap.boot ===
-            "function"
-            ? {
-                healthy:
-                  true,
-
-                errors: []
-              }
-            : {
-                healthy:
-                  false,
-
-                errors: [
-                  "BOOTSTRAP does not expose boot()."
-                ]
-              };
-        }
-
-        if (
-          component ===
-          "AUTONOMOUS_RUNTIME"
-        ) {
-          const runtime =
-            instance as {
-              execute?: unknown;
-            };
-
-          return typeof runtime.execute ===
-            "function"
-            ? {
-                healthy:
-                  true,
-
-                errors: []
-              }
-            : {
-                healthy:
-                  false,
-
-                errors: [
-                  "AUTONOMOUS_RUNTIME does not expose execute()."
-                ]
-              };
-        }
-
-        if (
-          component ===
-          "PROJECT_BUILDER"
-        ) {
-          const builder =
-            instance as {
-              build?: unknown;
-            };
-
-          return typeof builder.build ===
-            "function"
-            ? {
-                healthy:
-                  true,
-
-                errors: []
-              }
-            : {
-                healthy:
-                  false,
-
-                errors: [
-                  "PROJECT_BUILDER does not expose build()."
-                ]
-              };
-        }
-
-        if (
-          component ===
-          "PLATFORM_BUILDER"
-        ) {
-          const builder =
-            instance as {
-              build?: unknown;
-            };
-
-          return typeof builder.build ===
-            "function"
-            ? {
-                healthy:
-                  true,
-
-                errors: []
-              }
-            : {
-                healthy:
-                  false,
-
-                errors: [
-                  "PLATFORM_BUILDER does not expose build()."
-                ]
-              };
-        }
-
-        if (
-          component ===
-          "ADMIN_BUILDER"
-        ) {
-          const builder =
-            instance as {
-              build?: unknown;
-            };
-
-          return typeof builder.build ===
-            "function"
-            ? {
-                healthy:
-                  true,
-
-                errors: []
-              }
-            : {
-                healthy:
-                  false,
-
-                errors: [
-                  "ADMIN_BUILDER does not expose build()."
-                ]
-              };
-        }
-
-        if (
-          component ===
-          "GAME_BUILDER"
-        ) {
-          const builder =
-            instance as {
-              create?: unknown;
-            };
-
-          return typeof builder.create ===
-            "function"
-            ? {
-                healthy:
-                  true,
-
-                errors: []
-              }
-            : {
-                healthy:
-                  false,
-
-                errors: [
-                  "GAME_BUILDER does not expose create()."
-                ]
-              };
-        }
-
-        const healthCandidate =
-          instance as {
-            healthCheck?:
-              () =>
-                Promise<boolean>;
-          };
-
-        if (
-          healthCandidate
-            .healthCheck
-        ) {
-          try {
-            const healthy =
-              await healthCandidate
-                .healthCheck();
-
-            return {
-              healthy,
-
-              errors:
-                healthy
-                  ? []
-                  : [
-                      `${component} health check failed.`
-                    ]
-            };
-          } catch (error) {
-            return {
-              healthy:
-                false,
-
-              errors: [
-                `${component}: ${
-                  error instanceof Error
-                    ? error.message
-                    : String(error)
-                }`
-              ]
-            };
-          }
-        }
-
-        return {
-          healthy:
-            true,
-
-          errors: []
-        };
-      },
+      checkRealComponentHealth,
 
     onEvent:
       async event => {
