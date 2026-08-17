@@ -35,6 +35,12 @@ export interface SovereignProductionStartResult {
 
   executed: boolean;
 
+  modulesLoaded: boolean;
+
+  instancesVerified: boolean;
+
+  runtimeStarted: boolean;
+
   running: boolean;
 
   ready: boolean;
@@ -115,9 +121,11 @@ export class SovereignAIFinalProductionStart {
           this.options.instruction ??
           "Start SOVEREIGN AI PLATFORM in final autonomous production mode.",
 
-        priority: 100,
+        priority:
+          100,
 
-        autonomous: true,
+        autonomous:
+          true,
 
         createdAt:
           Date.now(),
@@ -130,7 +138,7 @@ export class SovereignAIFinalProductionStart {
             "PRODUCTION",
 
           authority:
-            "OWNER"
+            "OWNER_SUPREME"
         }
       };
 
@@ -139,16 +147,117 @@ export class SovereignAIFinalProductionStart {
         command
       );
 
-    const success =
-      commandResult.success &&
-      commandResult.accepted &&
-      commandResult.executed &&
-      commandResult.ready &&
+    const ownerAccepted =
+      commandResult.accepted ===
+      true;
+
+    const executed =
+      commandResult.executed ===
+      true;
+
+    const modulesLoaded =
+      commandResult.modulesLoaded ===
+      true;
+
+    const instancesVerified =
+      commandResult.instancesVerified ===
+      true;
+
+    const runtimeStarted =
+      commandResult.runtimeStarted ===
+      true;
+
+    const ready =
+      commandResult.ready ===
+      true;
+
+    const running =
       commandResult.state ===
-        "RUNNING";
+      "RUNNING";
+
+    const success =
+      commandResult.success ===
+        true &&
+      ownerAccepted &&
+      executed &&
+      modulesLoaded &&
+      instancesVerified &&
+      runtimeStarted &&
+      ready &&
+      running;
 
     this.active =
       success;
+
+    const errors:
+      string[] = [
+        ...commandResult.errors
+      ];
+
+    if (
+      !ownerAccepted
+    ) {
+      errors.push(
+        "OWNER command was not accepted."
+      );
+    }
+
+    if (
+      !executed
+    ) {
+      errors.push(
+        "OWNER command was not executed."
+      );
+    }
+
+    if (
+      !modulesLoaded
+    ) {
+      errors.push(
+        "Real sovereign modules are not fully loaded."
+      );
+    }
+
+    if (
+      !instancesVerified
+    ) {
+      errors.push(
+        "Required sovereign instances are not fully verified."
+      );
+    }
+
+    if (
+      !runtimeStarted
+    ) {
+      errors.push(
+        "Sovereign runtime did not start."
+      );
+    }
+
+    if (
+      !ready
+    ) {
+      errors.push(
+        "Sovereign runtime is not ready."
+      );
+    }
+
+    if (
+      !running
+    ) {
+      errors.push(
+        `Sovereign runtime state is ${commandResult.state}.`
+      );
+    }
+
+    const uniqueErrors =
+      [
+        ...new Set(
+          errors.filter(
+            Boolean
+          )
+        )
+      ];
 
     const result:
       SovereignProductionStartResult = {
@@ -157,17 +266,19 @@ export class SovereignAIFinalProductionStart {
         production:
           success,
 
-        ownerAccepted:
-          commandResult.accepted,
+        ownerAccepted,
 
-        executed:
-          commandResult.executed,
+        executed,
 
-        running:
-          success,
+        modulesLoaded,
 
-        ready:
-          commandResult.ready,
+        instancesVerified,
+
+        runtimeStarted,
+
+        running,
+
+        ready,
 
         state:
           commandResult.state,
@@ -178,9 +289,8 @@ export class SovereignAIFinalProductionStart {
         command:
           commandResult,
 
-        errors: [
-          ...commandResult.errors
-        ],
+        errors:
+          uniqueErrors,
 
         startedAt,
 
@@ -203,11 +313,35 @@ export class SovereignAIFinalProductionStart {
       );
 
       console.error(
-        `STATE: ${result.state}`
+        `OWNER ACCEPTED: ${ownerAccepted}`
       );
 
       console.error(
-        `READY: ${result.ready}`
+        `EXECUTED: ${executed}`
+      );
+
+      console.error(
+        `MODULES LOADED: ${modulesLoaded}`
+      );
+
+      console.error(
+        `INSTANCES VERIFIED: ${instancesVerified}`
+      );
+
+      console.error(
+        `RUNTIME STARTED: ${runtimeStarted}`
+      );
+
+      console.error(
+        `RUNNING: ${running}`
+      );
+
+      console.error(
+        `READY: ${ready}`
+      );
+
+      console.error(
+        `STATE: ${result.state}`
       );
 
       console.error(
@@ -228,6 +362,10 @@ export class SovereignAIFinalProductionStart {
     );
 
     console.log(
+      "AUTHORITY: OWNER_SUPREME"
+    );
+
+    console.log(
       "PRODUCTION: true"
     );
 
@@ -237,6 +375,22 @@ export class SovereignAIFinalProductionStart {
 
     console.log(
       "EXECUTED: true"
+    );
+
+    console.log(
+      "MODULES LOADED: true"
+    );
+
+    console.log(
+      "INSTANCES VERIFIED: true"
+    );
+
+    console.log(
+      "RUNTIME STARTED: true"
+    );
+
+    console.log(
+      "RUNNING: true"
     );
 
     console.log(
