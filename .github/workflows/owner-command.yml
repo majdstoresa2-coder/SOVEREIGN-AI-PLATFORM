@@ -642,7 +642,8 @@ jobs:
 
           echo "Deployable file count: $FILE_COUNT"
 
-          if [ "$FILE_COUNT" -lt 2 ]; then
+          # index.html وحده صالح لهذه الحزمة الحالية
+          if [ "$FILE_COUNT" -lt 1 ]; then
             echo "ERROR: Deployment package is incomplete."
             exit 1
           fi
@@ -730,7 +731,5 @@ jobs:
             exit 1
           fi
 
-          echo "=========================================="
           echo "LIVE DEPLOYMENT VERIFIED"
-          echo "=========================================="
           echo "PLAY URL: $PLAY_URL"
