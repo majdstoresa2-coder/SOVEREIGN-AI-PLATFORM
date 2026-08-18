@@ -1,526 +1,3 @@
-name: Sovereign Owner Command
-
-on:
-  workflow_dispatch:
-    inputs:
-      command:
-        description: "OWNER COMMAND"
-        required: true
-        type: string
-
-permissions:
-  contents: write
-  actions: read
-  pages: write
-  id-token: write
-
-concurrency:
-  group: sovereign-owner-production
-  cancel-in-progress: false
-
-jobs:
-  owner-command:
-    name: Sovereign Autonomous Execution
-    runs-on: ubuntu-latest
-
-    environment:
-      name: github-pages
-      url: ${{ steps.deployment.outputs.page_url }}
-
-    steps:
-      # ======================================================
-      # SOURCE
-      # ======================================================
-
-      - name: Checkout Sovereign AI Platform
-        uses: actions/checkout@v4
-
-      - name: Setup Node.js
-        uses: actions/setup-node@v4
-        with:
-          node-version: 24
-
-      - name: Install dependencies
-        run: npm install
-
-      # ======================================================
-      # SOVEREIGN SYSTEM VERIFICATION
-      # ======================================================
-
-      - name: Verify Sovereign Components
-        shell: bash
-        run: |
-          set -euo pipefail
-
-          echo "=========================================="
-          echo "VERIFY SOVEREIGN AUTONOMOUS PIPELINE"
-          echo "=========================================="
-
-          REQUIRED_FILES=(
-            "SOVEREIGN-AUTHORITY-02.ts"
-            "SOVEREIGN-STEWARD-03.ts"
-            "SOVEREIGN-AI-MASTER-BRAIN-170.ts"
-            "SOVEREIGN-AI-AUTONOMOUS-PLANNER-171.ts"
-            "SOVEREIGN-AI-AUTONOMOUS-EXECUTOR-172.ts"
-            "SOVEREIGN-AI-AUTONOMOUS-VERIFIER-173.ts"
-            "SOVEREIGN-AI-AUTONOMOUS-REPAIR-174.ts"
-            "SOVEREIGN-AI-CODE-ENGINE-175.ts"
-            "SOVEREIGN-AI-CODE-WORKSPACE-176.ts"
-            "SOVEREIGN-AI-TEST-ENGINE-177.ts"
-            "SOVEREIGN-AI-BUILD-ENGINE-178.ts"
-            "SOVEREIGN-AI-DEPLOYMENT-ENGINE-179.ts"
-            "SOVEREIGN-AI-AUTOMATION-ENGINE-180.ts"
-            "SOVEREIGN-AI-WORKER-ENGINE-181.ts"
-            "SOVEREIGN-AI-AUTONOMOUS-COORDINATOR-182.ts"
-            "SOVEREIGN-AI-CAPABILITY-REGISTRY-183.ts"
-            "SOVEREIGN-AI-OWNER-COMMAND-GATEWAY-208.ts"
-            "SOVEREIGN-AI-AUTONOMOUS-PROJECT-BUILDER-209.ts"
-            "SOVEREIGN-AI-PLATFORM-BUILDER-210.ts"
-            "SOVEREIGN-AI-ADMIN-CONTROL-BUILDER-211.ts"
-            "SOVEREIGN-AI-GAME-CREATION-BUILDER-212.ts"
-            "SOVEREIGN-AI-SELF-TEST-REPAIR-213.ts"
-            "SOVEREIGN-AI-RELEASE-MANAGER-214.ts"
-            "SOVEREIGN-AI-AUTONOMOUS-RUNTIME-215.ts"
-            "SOVEREIGN-AI-BOOTSTRAP-220.ts"
-            "SOVEREIGN-AI-FINAL-RUNTIME-222.ts"
-            "SOVEREIGN-AI-REAL-COMPONENT-BINDINGS-224.ts"
-          )
-
-          for FILE in "${REQUIRED_FILES[@]}"; do
-            if [ ! -f "$FILE" ]; then
-              echo "ERROR: Required sovereign component missing: $FILE"
-              exit 1
-            fi
-          done
-
-          echo "All required sovereign execution components verified."
-
-      # ======================================================
-      # OWNER COMMAND
-      # ======================================================
-
-      - name: Receive Owner Command
-        env:
-          OWNER_COMMAND: ${{ inputs.command }}
-        shell: bash
-        run: |
-          set -euo pipefail
-
-          if [ -z "${OWNER_COMMAND// }" ]; then
-            echo "ERROR: OWNER command is empty."
-            exit 1
-          fi
-
-          echo "OWNER command received."
-          echo "OWNER AUTHORITY: SUPREME"
-
-      # ======================================================
-      # EXECUTE SOVEREIGN AI
-      # ======================================================
-
-      - name: Execute Sovereign Owner Command
-        env:
-          OWNER_COMMAND: ${{ inputs.command }}
-          SOVEREIGN_WORKSPACE: ${{ github.workspace }}
-          SOVEREIGN_OUTPUT_DIR: ${{ github.workspace }}/sovereign-output
-        shell: bash
-        run: |
-          set -euo pipefail
-
-          cat > /tmp/sovereign-owner-command.ts <<'EOF'
-          import fs from "node:fs";
-          import path from "node:path";
-
-          import SovereignAIOwnerCommandGateway from "${{ github.workspace }}/SOVEREIGN-AI-OWNER-COMMAND-GATEWAY-208.ts";
-
-          import type {
-            SovereignMasterCommandEnvelope
-          } from "${{ github.workspace }}/SOVEREIGN-AI-OWNER-COMMAND-GATEWAY-208.ts";
-
-          import {
-            createSovereignRealRuntime
-          } from "${{ github.workspace }}/SOVEREIGN-AI-REAL-COMPONENT-BINDINGS-224.ts";
-
-          async function main(): Promise<void> {
-            const instruction =
-              process.env.OWNER_COMMAND?.trim();
-
-            if (!instruction) {
-              throw new Error(
-                "OWNER command is empty."
-              );
-            }
-
-            const ownerId =
-              "OWNER-MAJD";
-
-            const projectId =
-              "SOVEREIGN-AI-PLATFORM";
-
-            const workspace =
-              process.env.SOVEREIGN_WORKSPACE ||
-              process.cwd();
-
-            const runtimeResultFile =
-              path.join(
-                workspace,
-                "sovereign-runtime-result.json"
-              );
-
-            console.log(
-              "=========================================="
-            );
-
-            console.log(
-              "SOVEREIGN OWNER COMMAND"
-            );
-
-            console.log(
-              "OWNER AUTHORITY: SUPREME"
-            );
-
-            console.log(
-              "AUTONOMY: ENABLED"
-            );
-
-            console.log(
-              "COMMAND:",
-              instruction
-            );
-
-            console.log(
-              "=========================================="
-            );
-
-            const runtime =
-              createSovereignRealRuntime(
-                ownerId,
-                projectId
-              );
-
-            let dispatchedRuntimeResult:
-              unknown;
-
-            const gateway =
-              new SovereignAIOwnerCommandGateway({
-                async validateAuthority(
-                  authority
-                ): Promise<boolean> {
-                  return authority ===
-                    "OWNER";
-                },
-
-                async dispatch(
-                  command:
-                    SovereignMasterCommandEnvelope
-                ): Promise<unknown> {
-                  console.log(
-                    "OWNER COMMAND DISPATCHED"
-                  );
-
-                  console.log(
-                    "COMMAND ID:",
-                    command.id
-                  );
-
-                  const result =
-                    await runtime.launch(
-                      command.instruction
-                    );
-
-                  dispatchedRuntimeResult =
-                    result;
-
-                  fs.writeFileSync(
-                    runtimeResultFile,
-                    JSON.stringify(
-                      result,
-                      null,
-                      2
-                    ),
-                    "utf8"
-                  );
-
-                  console.log(
-                    "RUNTIME RESULT:"
-                  );
-
-                  console.log(
-                    JSON.stringify(
-                      result,
-                      null,
-                      2
-                    )
-                  );
-
-                  if (
-                    result.state === "FAILED" ||
-                    result.state === "BLOCKED"
-                  ) {
-                    throw new Error(
-                      `Sovereign runtime failed: state=${result.state}, error=${result.error ?? "unknown"}`
-                    );
-                  }
-
-                  if (!result.ready) {
-                    throw new Error(
-                      `Sovereign runtime did not become ready. state=${result.state}`
-                    );
-                  }
-
-                  return result;
-                },
-
-                async recordEvent(
-                  event
-                ): Promise<void> {
-                  console.log(
-                    "[SOVEREIGN OWNER EVENT]",
-                    event.type,
-                    event.commandId
-                  );
-                }
-              });
-
-            const receipt =
-              await gateway.receive({
-                authority:
-                  "OWNER",
-
-                instruction,
-
-                projectId,
-
-                priority:
-                  100,
-
-                autonomous:
-                  true,
-
-                constraints: [
-                  "OWNER authority remains SUPREME.",
-                  "STEWARD remains delegated below OWNER.",
-                  "Preserve sovereign core architecture.",
-                  "Do not delete established sovereign files.",
-                  "Use autonomous planning, coding, testing, repair, build, release and verification.",
-                  "Generated output must be real and physically written when deployment requires files.",
-                  "Do not claim PLAYABLE without real playable verification.",
-                  "Do not claim DEPLOYED without successful deployment verification.",
-                  "Do not claim SUCCESS when required output is missing.",
-                  "Prefer original MAJD implementations and preserve intellectual-property independence.",
-                  "Automatically strengthen weak implementations when safe and within delegated authority.",
-                  "Automatically detect failures, repair them and retest before release.",
-                  "All production results must remain auditable."
-                ],
-
-                metadata: {
-                  source:
-                    "SOVEREIGN-OWNER-COMMAND-WORKFLOW",
-
-                  executionMode:
-                    "AUTONOMOUS-PRODUCTION",
-
-                  ownerAuthority:
-                    "SUPREME",
-
-                  automation:
-                    true
-                }
-              });
-
-            console.log(
-              "=========================================="
-            );
-
-            console.log(
-              "OWNER COMMAND RECEIPT"
-            );
-
-            console.log(
-              JSON.stringify(
-                receipt,
-                null,
-                2
-              )
-            );
-
-            console.log(
-              "=========================================="
-            );
-
-            if (!receipt.accepted) {
-              throw new Error(
-                `OWNER command rejected: ${receipt.reason}`
-              );
-            }
-
-            if (
-              receipt.status === "FAILED" ||
-              receipt.status === "REJECTED"
-            ) {
-              throw new Error(
-                `OWNER command failed: ${receipt.reason}`
-              );
-            }
-
-            if (
-              receipt.status !== "DISPATCHED"
-            ) {
-              throw new Error(
-                `OWNER command was not dispatched. status=${receipt.status}`
-              );
-            }
-
-            if (
-              dispatchedRuntimeResult ===
-              undefined
-            ) {
-              throw new Error(
-                "Sovereign runtime produced no execution result."
-              );
-            }
-
-            console.log(
-              "SOVEREIGN OWNER COMMAND: SUCCESS"
-            );
-
-            console.log(
-              "OWNER AUTHORITY: SUPREME"
-            );
-
-            console.log(
-              "GATEWAY: DISPATCHED"
-            );
-
-            console.log(
-              "RUNTIME: READY"
-            );
-          }
-
-          main().catch(
-            (
-              error: unknown
-            ) => {
-              console.error(
-                "=========================================="
-              );
-
-              console.error(
-                "SOVEREIGN OWNER COMMAND FAILED"
-              );
-
-              console.error(
-                "=========================================="
-              );
-
-              if (
-                error instanceof Error
-              ) {
-                console.error(
-                  error.stack ??
-                    error.message
-                );
-              } else {
-                console.error(
-                  String(error)
-                );
-              }
-
-              process.exit(1);
-            }
-          );
-          EOF
-
-          npx tsx /tmp/sovereign-owner-command.ts
-
-      # ======================================================
-      # VERIFY RUNTIME
-      # ======================================================
-
-      - name: Verify Runtime Result
-        shell: bash
-        run: |
-          set -euo pipefail
-
-          echo "=========================================="
-          echo "VERIFY SOVEREIGN RUNTIME RESULT"
-          echo "=========================================="
-
-          if [ ! -f sovereign-runtime-result.json ]; then
-            echo "ERROR: sovereign-runtime-result.json was not generated."
-            exit 1
-          fi
-
-          test -s sovereign-runtime-result.json
-
-          node <<'NODE'
-          const fs = require("fs");
-
-          const result =
-            JSON.parse(
-              fs.readFileSync(
-                "sovereign-runtime-result.json",
-                "utf8"
-              )
-            );
-
-          if (
-            result.state === "FAILED" ||
-            result.state === "BLOCKED"
-          ) {
-            throw new Error(
-              `Runtime state invalid: ${result.state}`
-            );
-          }
-
-          if (result.ready !== true) {
-            throw new Error(
-              "Runtime is not READY."
-            );
-          }
-
-          console.log(
-            "Runtime result verified."
-          );
-          NODE
-
-      # ======================================================
-      # FIND ALL REAL OUTPUT
-      # ======================================================
-
-      - name: Collect Sovereign Production Output
-        id: collect_output
-        shell: bash
-        run: |
-          set -euo pipefail
-
-          echo "=========================================="
-          echo "COLLECT SOVEREIGN PRODUCTION OUTPUT"
-          echo "=========================================="
-
-          rm -rf sovereign-artifacts
-          mkdir -p sovereign-artifacts
-
-          OUTPUT_FOUND="false"
-
-          if [ -d sovereign-output ]; then
-            cp -R \
-              sovereign-output \
-              sovereign-artifacts/sovereign-output
-
-            OUTPUT_FOUND="true"
-          fi
-
-          cp \
-            sovereign-runtime-result.json \
-            sovereign-artifacts/sovereign-runtime-result.json
-
-          echo "output_found=$OUTPUT_FOUND" >> "$GITHUB_OUTPUT"
-
-          find sovereign-artifacts \
-            -type f \
-            -print
-
       # ======================================================
       # LOCATE WEB BUILD AUTOMATICALLY
       # ======================================================
@@ -536,27 +13,35 @@ jobs:
           echo "=========================================="
 
           rm -rf sovereign-pages
+          mkdir -p sovereign-pages
 
-          WEB_INDEX="$(
-            find sovereign-output \
-              -type f \
-              -name index.html \
-              \( \
-                -path "*/build/index.html" \
-                -o -path "*/dist/index.html" \
-                -o -path "*/export/index.html" \
-                -o -path "*/release/index.html" \
-              \) \
-              -print 2>/dev/null \
-              | head -n 1
-          )"
+          WEB_INDEX=""
+
+          # 1 — REAL GENERATED SOVEREIGN BUILD
+          if [ -d sovereign-output ]; then
+            WEB_INDEX="$(
+              find sovereign-output \
+                -type f \
+                -name index.html \
+                \( \
+                  -path "*/build/index.html" \
+                  -o -path "*/dist/index.html" \
+                  -o -path "*/export/index.html" \
+                  -o -path "*/release/index.html" \
+                \) \
+                -print 2>/dev/null \
+                | head -n 1
+            )"
+          fi
+
+          # 2 — EXISTING SOVEREIGN PLATFORM WEB ENTRY
+          if [ -z "$WEB_INDEX" ] && [ -s "${GITHUB_WORKSPACE}/index.html" ]; then
+            WEB_INDEX="${GITHUB_WORKSPACE}/index.html"
+          fi
 
           if [ -z "$WEB_INDEX" ]; then
             echo "web_build_found=false" >> "$GITHUB_OUTPUT"
-
-            echo "No deployable web index.html was produced."
-            echo "The command result will remain archived, but Pages deployment cannot occur."
-
+            echo "ERROR: No deployable Sovereign web index.html found."
             exit 1
           fi
 
@@ -564,21 +49,40 @@ jobs:
             dirname "$WEB_INDEX"
           )"
 
-          mkdir -p sovereign-pages
+          echo "WEB INDEX: $WEB_INDEX"
+          echo "WEB ROOT: $WEB_ROOT"
 
-          cp -R \
-            "$WEB_ROOT"/. \
-            sovereign-pages/
+          if [ "$WEB_INDEX" = "${GITHUB_WORKSPACE}/index.html" ]; then
+            cp "${GITHUB_WORKSPACE}/index.html" sovereign-pages/index.html
 
-          if [ ! -f sovereign-pages/index.html ]; then
-            echo "ERROR: Deployment package has no index.html."
+            if [ -f "${GITHUB_WORKSPACE}/styles.css" ]; then
+              cp "${GITHUB_WORKSPACE}/styles.css" sovereign-pages/styles.css
+            fi
+
+            if [ -f "${GITHUB_WORKSPACE}/game.js" ]; then
+              cp "${GITHUB_WORKSPACE}/game.js" sovereign-pages/game.js
+            fi
+
+            if [ -d "${GITHUB_WORKSPACE}/src" ]; then
+              cp -R "${GITHUB_WORKSPACE}/src" sovereign-pages/src
+            fi
+
+            if [ -d "${GITHUB_WORKSPACE}/assets" ]; then
+              cp -R "${GITHUB_WORKSPACE}/assets" sovereign-pages/assets
+            fi
+          else
+            cp -R \
+              "$WEB_ROOT"/. \
+              sovereign-pages/
+          fi
+
+          if [ ! -s sovereign-pages/index.html ]; then
+            echo "ERROR: Deployment package has no valid index.html."
             exit 1
           fi
 
           echo "web_build_found=true" >> "$GITHUB_OUTPUT"
           echo "web_root=$WEB_ROOT" >> "$GITHUB_OUTPUT"
-
-          echo "WEB BUILD ROOT: $WEB_ROOT"
 
           echo "=========================================="
           echo "DEPLOYABLE WEB BUILD VERIFIED"
@@ -587,160 +91,3 @@ jobs:
           find sovereign-pages \
             -type f \
             -print
-
-      # ======================================================
-      # VERIFY REAL PLAYABLE PACKAGE
-      # ======================================================
-
-      - name: Verify Deployable Package
-        shell: bash
-        run: |
-          set -euo pipefail
-
-          echo "=========================================="
-          echo "VERIFY DEPLOYABLE PACKAGE"
-          echo "=========================================="
-
-          if [ ! -s sovereign-pages/index.html ]; then
-            echo "ERROR: index.html is missing or empty."
-            exit 1
-          fi
-
-          FILE_COUNT="$(
-            find sovereign-pages \
-              -type f \
-              | wc -l
-          )"
-
-          echo "Deployable file count: $FILE_COUNT"
-
-          if [ "$FILE_COUNT" -lt 2 ]; then
-            echo "ERROR: Deployment package is incomplete."
-            exit 1
-          fi
-
-          echo "Real deployable output verified."
-
-      # ======================================================
-      # ARCHIVE - INTERNAL ONLY
-      # OWNER DOES NOT NEED TO DOWNLOAD IT
-      # ======================================================
-
-      - name: Archive Sovereign Production Build
-        uses: actions/upload-artifact@v4
-        with:
-          name: sovereign-production-${{ github.run_number }}
-          path: sovereign-artifacts/
-          if-no-files-found: error
-          retention-days: 30
-          compression-level: 6
-
-      # ======================================================
-      # GITHUB PAGES AUTO DEPLOY
-      # ======================================================
-
-      - name: Configure GitHub Pages
-        uses: actions/configure-pages@v5
-
-      - name: Upload GitHub Pages Artifact
-        uses: actions/upload-pages-artifact@v4
-        with:
-          path: sovereign-pages
-
-      - name: Deploy Sovereign Production
-        id: deployment
-        uses: actions/deploy-pages@v4
-
-      # ======================================================
-      # LIVE VERIFICATION
-      # ======================================================
-
-      - name: Verify Live Deployment
-        env:
-          PLAY_URL: ${{ steps.deployment.outputs.page_url }}
-        shell: bash
-        run: |
-          set -euo pipefail
-
-          echo "=========================================="
-          echo "VERIFY LIVE DEPLOYMENT"
-          echo "=========================================="
-
-          if [ -z "$PLAY_URL" ]; then
-            echo "ERROR: Deployment returned no PLAY URL."
-            exit 1
-          fi
-
-          echo "PLAY URL: $PLAY_URL"
-
-          SUCCESS="false"
-
-          for ATTEMPT in 1 2 3 4 5 6; do
-            echo "Live check attempt: $ATTEMPT"
-
-            STATUS="$(
-              curl \
-                -L \
-                -s \
-                -o /tmp/sovereign-live.html \
-                -w "%{http_code}" \
-                "$PLAY_URL" \
-                || true
-            )"
-
-            if [ "$STATUS" = "200" ]; then
-              if [ -s /tmp/sovereign-live.html ]; then
-                SUCCESS="true"
-                break
-              fi
-            fi
-
-            sleep 5
-          done
-
-          if [ "$SUCCESS" != "true" ]; then
-            echo "ERROR: Live deployment did not become reachable."
-            exit 1
-          fi
-
-          echo "LIVE DEPLOYMENT: VERIFIED"
-          echo "PLAY URL: $PLAY_URL"
-
-      # ======================================================
-      # FINAL OWNER RESULT
-      # ======================================================
-
-      - name: Sovereign Owner Command Complete
-        if: success()
-        env:
-          PLAY_URL: ${{ steps.deployment.outputs.page_url }}
-        shell: bash
-        run: |
-          echo "=========================================="
-          echo "SOVEREIGN OWNER COMMAND: SUCCESS"
-          echo "OWNER AUTHORITY: SUPREME"
-          echo "AUTONOMOUS EXECUTION: COMPLETED"
-          echo "CODE/BUILD: VERIFIED"
-          echo "TEST/REPAIR: VERIFIED BY SOVEREIGN RUNTIME"
-          echo "DEPLOYMENT: SUCCESS"
-          echo "LIVE VERIFICATION: SUCCESS"
-          echo "PLAY / RESULT URL: $PLAY_URL"
-          echo "=========================================="
-
-          {
-            echo "## SOVEREIGN AI — OWNER RESULT"
-            echo ""
-            echo "**OWNER AUTHORITY:** SUPREME"
-            echo ""
-            echo "**AUTONOMOUS EXECUTION:** SUCCESS"
-            echo ""
-            echo "**DEPLOYMENT:** SUCCESS"
-            echo ""
-            echo "**LIVE VERIFICATION:** SUCCESS"
-            echo ""
-            echo "### PLAY / RESULT URL"
-            echo ""
-            echo "$PLAY_URL"
-            echo ""
-            echo "Build, verification and deployment completed automatically."
-          } >> "$GITHUB_STEP_SUMMARY"
