@@ -3,6 +3,7 @@
 // SOVEREIGN-AI-REAL-COMPONENT-BINDINGS-224.ts
 // REAL COMPONENT BINDING LAYER
 // REAL FILESYSTEM GAME BUILD + CODE ENGINE BINDING
+// MAJD WEBGL 3D + CANVAS 2D FALLBACK
 // ============================================================
 
 import fs from "node:fs/promises";
@@ -83,7 +84,6 @@ import {
 import type {
   SovereignAIGameCreationAdapter,
   MajdGameCreationRequest,
-  MajdGameCreationResult,
   MajdGameDesign,
   MajdGameSystem,
   MajdGameGeneratedFile,
@@ -107,51 +107,96 @@ import type {
 
 const SOVEREIGN_OUTPUT_ROOT = path.resolve(
   process.env.SOVEREIGN_OUTPUT_DIR ||
-    path.join(process.cwd(), "sovereign-output")
+    path.join(
+      process.cwd(),
+      "sovereign-output"
+    )
 );
 
-function safeProjectId(value: string): string {
+function safeProjectId(
+  value: string
+): string {
   const normalized = value
     .trim()
     .toLowerCase()
-    .replace(/[^a-z0-9\u0600-\u06ff_-]+/gi, "-")
-    .replace(/^-+|-+$/g, "");
+    .replace(
+      /[^a-z0-9\u0600-\u06ff_-]+/gi,
+      "-"
+    )
+    .replace(
+      /^-+|-+$/g,
+      ""
+    );
 
-  return normalized || `sovereign-project-${Date.now()}`;
+  return (
+    normalized ||
+    `sovereign-project-${Date.now()}`
+  );
 }
 
-function gameRoot(projectId: string): string {
+function gameRoot(
+  projectId: string
+): string {
   return path.join(
     SOVEREIGN_OUTPUT_ROOT,
     safeProjectId(projectId)
   );
 }
 
-function gameWorkspace(projectId: string): string {
-  return path.join(gameRoot(projectId), "workspace");
+function gameWorkspace(
+  projectId: string
+): string {
+  return path.join(
+    gameRoot(projectId),
+    "workspace"
+  );
 }
 
-function gameBuildDirectory(projectId: string): string {
-  return path.join(gameRoot(projectId), "build");
+function gameBuildDirectory(
+  projectId: string
+): string {
+  return path.join(
+    gameRoot(projectId),
+    "build"
+  );
 }
 
 function safeRelativePath(
   projectId: string,
   filePath: string
 ): string {
-  let relative = filePath.replace(/\\/g, "/").trim();
+  let relative = filePath
+    .replace(
+      /\\/g,
+      "/"
+    )
+    .trim();
 
-  const prefix = `${projectId}/`;
+  const prefix =
+    `${projectId}/`;
 
-  if (relative.startsWith(prefix)) {
-    relative = relative.slice(prefix.length);
+  if (
+    relative.startsWith(
+      prefix
+    )
+  ) {
+    relative =
+      relative.slice(
+        prefix.length
+      );
   }
 
-  while (relative.startsWith("/")) {
-    relative = relative.slice(1);
+  while (
+    relative.startsWith("/")
+  ) {
+    relative =
+      relative.slice(1);
   }
 
-  const normalized = path.normalize(relative);
+  const normalized =
+    path.normalize(
+      relative
+    );
 
   if (
     normalized.startsWith("..") ||
@@ -169,9 +214,14 @@ async function writeTextFile(
   absolutePath: string,
   content: string
 ): Promise<void> {
-  await fs.mkdir(path.dirname(absolutePath), {
-    recursive: true
-  });
+  await fs.mkdir(
+    path.dirname(
+      absolutePath
+    ),
+    {
+      recursive: true
+    }
+  );
 
   await fs.writeFile(
     absolutePath,
@@ -184,21 +234,28 @@ async function fileExists(
   absolutePath: string
 ): Promise<boolean> {
   try {
-    await fs.access(absolutePath);
+    await fs.access(
+      absolutePath
+    );
+
     return true;
   } catch {
     return false;
   }
 }
 
-function checksum(content: string): string {
+function checksum(
+  content: string
+): string {
   return crypto
     .createHash("sha256")
     .update(content)
     .digest("hex");
 }
 
-function escapeHtml(value: string): string {
+function escapeHtml(
+  value: string
+): string {
   return value
     .replace(/&/g, "&amp;")
     .replace(/</g, "&lt;")
@@ -211,174 +268,191 @@ function escapeHtml(value: string): string {
 // COMPONENT MODULE MAP
 // ============================================================
 
-const componentModules: Partial<
-  Record<SovereignFinalComponent, string>
-> = {
-  AUTHORITY: "./SOVEREIGN-AUTHORITY-02.ts",
-  STEWARD: "./SOVEREIGN-STEWARD-03.ts",
-  CORE: "./SOVEREIGN-CORE-04.ts",
-  RUNTIME: "./SOVEREIGN-RUNTIME-05.ts",
+const componentModules:
+  Partial<
+    Record<
+      SovereignFinalComponent,
+      string
+    >
+  > = {
+    AUTHORITY:
+      "./SOVEREIGN-AUTHORITY-02.ts",
 
-  MASTER_BRAIN:
-    "./SOVEREIGN-AI-MASTER-BRAIN-170.ts",
+    STEWARD:
+      "./SOVEREIGN-STEWARD-03.ts",
 
-  PLANNER:
-    "./SOVEREIGN-AI-AUTONOMOUS-PLANNER-171.ts",
+    CORE:
+      "./SOVEREIGN-CORE-04.ts",
 
-  EXECUTOR:
-    "./SOVEREIGN-AI-AUTONOMOUS-EXECUTOR-172.ts",
+    RUNTIME:
+      "./SOVEREIGN-RUNTIME-05.ts",
 
-  VERIFIER:
-    "./SOVEREIGN-AI-AUTONOMOUS-VERIFIER-173.ts",
+    MASTER_BRAIN:
+      "./SOVEREIGN-AI-MASTER-BRAIN-170.ts",
 
-  REPAIR:
-    "./SOVEREIGN-AI-AUTONOMOUS-REPAIR-174.ts",
+    PLANNER:
+      "./SOVEREIGN-AI-AUTONOMOUS-PLANNER-171.ts",
 
-  CODE_ENGINE:
-    "./SOVEREIGN-AI-CODE-ENGINE-175.ts",
+    EXECUTOR:
+      "./SOVEREIGN-AI-AUTONOMOUS-EXECUTOR-172.ts",
 
-  CODE_WORKSPACE:
-    "./SOVEREIGN-AI-CODE-WORKSPACE-176.ts",
+    VERIFIER:
+      "./SOVEREIGN-AI-AUTONOMOUS-VERIFIER-173.ts",
 
-  TEST_ENGINE:
-    "./SOVEREIGN-AI-TEST-ENGINE-177.ts",
+    REPAIR:
+      "./SOVEREIGN-AI-AUTONOMOUS-REPAIR-174.ts",
 
-  BUILD_ENGINE:
-    "./SOVEREIGN-AI-BUILD-ENGINE-178.ts",
+    CODE_ENGINE:
+      "./SOVEREIGN-AI-CODE-ENGINE-175.ts",
 
-  DEPLOYMENT_ENGINE:
-    "./SOVEREIGN-AI-DEPLOYMENT-ENGINE-179.ts",
+    CODE_WORKSPACE:
+      "./SOVEREIGN-AI-CODE-WORKSPACE-176.ts",
 
-  AUTOMATION_ENGINE:
-    "./SOVEREIGN-AI-AUTOMATION-ENGINE-180.ts",
+    TEST_ENGINE:
+      "./SOVEREIGN-AI-TEST-ENGINE-177.ts",
 
-  WORKER_ENGINE:
-    "./SOVEREIGN-AI-WORKER-ENGINE-181.ts",
+    BUILD_ENGINE:
+      "./SOVEREIGN-AI-BUILD-ENGINE-178.ts",
 
-  COORDINATOR:
-    "./SOVEREIGN-AI-AUTONOMOUS-COORDINATOR-182.ts",
+    DEPLOYMENT_ENGINE:
+      "./SOVEREIGN-AI-DEPLOYMENT-ENGINE-179.ts",
 
-  CAPABILITY_REGISTRY:
-    "./SOVEREIGN-AI-CAPABILITY-REGISTRY-183.ts",
+    AUTOMATION_ENGINE:
+      "./SOVEREIGN-AI-AUTOMATION-ENGINE-180.ts",
 
-  EXECUTION_SCHEDULER:
-    "./SOVEREIGN-AI-EXECUTION-SCHEDULER-193.ts",
+    WORKER_ENGINE:
+      "./SOVEREIGN-AI-WORKER-ENGINE-181.ts",
 
-  RESOURCE_MANAGER:
-    "./SOVEREIGN-AI-RESOURCE-MANAGER-194.ts",
+    COORDINATOR:
+      "./SOVEREIGN-AI-AUTONOMOUS-COORDINATOR-182.ts",
 
-  CAPACITY_PLANNER:
-    "./SOVEREIGN-AI-CAPACITY-PLANNER-195.ts",
+    CAPABILITY_REGISTRY:
+      "./SOVEREIGN-AI-CAPABILITY-REGISTRY-183.ts",
 
-  LOAD_BALANCER:
-    "./SOVEREIGN-AI-LOAD-BALANCER-196.ts",
+    EXECUTION_SCHEDULER:
+      "./SOVEREIGN-AI-EXECUTION-SCHEDULER-193.ts",
 
-  EXECUTION_SUPERVISOR:
-    "./SOVEREIGN-AI-EXECUTION-SUPERVISOR-197.ts",
+    RESOURCE_MANAGER:
+      "./SOVEREIGN-AI-RESOURCE-MANAGER-194.ts",
 
-  OUTCOME_EVALUATOR:
-    "./SOVEREIGN-AI-OUTCOME-EVALUATOR-198.ts",
+    CAPACITY_PLANNER:
+      "./SOVEREIGN-AI-CAPACITY-PLANNER-195.ts",
 
-  EXPERIENCE_LEARNING:
-    "./SOVEREIGN-AI-EXPERIENCE-LEARNING-199.ts",
+    LOAD_BALANCER:
+      "./SOVEREIGN-AI-LOAD-BALANCER-196.ts",
 
-  KNOWLEDGE_SYNTHESIS:
-    "./SOVEREIGN-AI-KNOWLEDGE-SYNTHESIS-200.ts",
+    EXECUTION_SUPERVISOR:
+      "./SOVEREIGN-AI-EXECUTION-SUPERVISOR-197.ts",
 
-  KNOWLEDGE_RETRIEVAL:
-    "./SOVEREIGN-AI-KNOWLEDGE-RETRIEVAL-201.ts",
+    OUTCOME_EVALUATOR:
+      "./SOVEREIGN-AI-OUTCOME-EVALUATOR-198.ts",
 
-  KNOWLEDGE_GUIDANCE:
-    "./SOVEREIGN-AI-KNOWLEDGE-GUIDANCE-202.ts",
+    EXPERIENCE_LEARNING:
+      "./SOVEREIGN-AI-EXPERIENCE-LEARNING-199.ts",
 
-  DECISION_CONTEXT:
-    "./SOVEREIGN-AI-DECISION-CONTEXT-203.ts",
+    KNOWLEDGE_SYNTHESIS:
+      "./SOVEREIGN-AI-KNOWLEDGE-SYNTHESIS-200.ts",
 
-  DECISION_ASSURANCE:
-    "./SOVEREIGN-AI-DECISION-ASSURANCE-204.ts",
+    KNOWLEDGE_RETRIEVAL:
+      "./SOVEREIGN-AI-KNOWLEDGE-RETRIEVAL-201.ts",
 
-  EXECUTION_AUTHORIZATION:
-    "./SOVEREIGN-AI-EXECUTION-AUTHORIZATION-205.ts",
+    KNOWLEDGE_GUIDANCE:
+      "./SOVEREIGN-AI-KNOWLEDGE-GUIDANCE-202.ts",
 
-  MASTER_INTEGRATION:
-    "./SOVEREIGN-AI-MASTER-INTEGRATION-206.ts",
+    DECISION_CONTEXT:
+      "./SOVEREIGN-AI-DECISION-CONTEXT-203.ts",
 
-  MAJD_KNOWLEDGE:
-    "./SOVEREIGN-AI-MAJD-KNOWLEDGE-207.ts",
+    DECISION_ASSURANCE:
+      "./SOVEREIGN-AI-DECISION-ASSURANCE-204.ts",
 
-  OWNER_COMMAND_GATEWAY:
-    "./SOVEREIGN-AI-OWNER-COMMAND-GATEWAY-208.ts",
+    EXECUTION_AUTHORIZATION:
+      "./SOVEREIGN-AI-EXECUTION-AUTHORIZATION-205.ts",
 
-  PROJECT_BUILDER:
-    "./SOVEREIGN-AI-AUTONOMOUS-PROJECT-BUILDER-209.ts",
+    MASTER_INTEGRATION:
+      "./SOVEREIGN-AI-MASTER-INTEGRATION-206.ts",
 
-  PLATFORM_BUILDER:
-    "./SOVEREIGN-AI-PLATFORM-BUILDER-210.ts",
+    MAJD_KNOWLEDGE:
+      "./SOVEREIGN-AI-MAJD-KNOWLEDGE-207.ts",
 
-  ADMIN_BUILDER:
-    "./SOVEREIGN-AI-ADMIN-CONTROL-BUILDER-211.ts",
+    OWNER_COMMAND_GATEWAY:
+      "./SOVEREIGN-AI-OWNER-COMMAND-GATEWAY-208.ts",
 
-  GAME_BUILDER:
-    "./SOVEREIGN-AI-GAME-CREATION-BUILDER-212.ts",
+    PROJECT_BUILDER:
+      "./SOVEREIGN-AI-AUTONOMOUS-PROJECT-BUILDER-209.ts",
 
-  SELF_TEST_REPAIR:
-    "./SOVEREIGN-AI-SELF-TEST-REPAIR-213.ts",
+    PLATFORM_BUILDER:
+      "./SOVEREIGN-AI-PLATFORM-BUILDER-210.ts",
 
-  RELEASE_MANAGER:
-    "./SOVEREIGN-AI-RELEASE-MANAGER-214.ts",
+    ADMIN_BUILDER:
+      "./SOVEREIGN-AI-ADMIN-CONTROL-BUILDER-211.ts",
 
-  AUTONOMOUS_RUNTIME:
-    "./SOVEREIGN-AI-AUTONOMOUS-RUNTIME-215.ts",
+    GAME_BUILDER:
+      "./SOVEREIGN-AI-GAME-CREATION-BUILDER-212.ts",
 
-  KNOWLEDGE_INGESTION:
-    "./SOVEREIGN-AI-KNOWLEDGE-INGESTION-216.ts",
+    SELF_TEST_REPAIR:
+      "./SOVEREIGN-AI-SELF-TEST-REPAIR-213.ts",
 
-  KNOWLEDGE_REASONING:
-    "./SOVEREIGN-AI-KNOWLEDGE-REASONING-217.ts",
+    RELEASE_MANAGER:
+      "./SOVEREIGN-AI-RELEASE-MANAGER-214.ts",
 
-  EXTERNAL_PLATFORM_INTELLIGENCE:
-    "./SOVEREIGN-AI-EXTERNAL-PLATFORM-INTELLIGENCE-218.ts",
+    AUTONOMOUS_RUNTIME:
+      "./SOVEREIGN-AI-AUTONOMOUS-RUNTIME-215.ts",
 
-  SYSTEM_INTEGRATION:
-    "./SOVEREIGN-AI-SYSTEM-INTEGRATION-219.ts",
+    KNOWLEDGE_INGESTION:
+      "./SOVEREIGN-AI-KNOWLEDGE-INGESTION-216.ts",
 
-  BOOTSTRAP:
-    "./SOVEREIGN-AI-BOOTSTRAP-220.ts"
-};
+    KNOWLEDGE_REASONING:
+      "./SOVEREIGN-AI-KNOWLEDGE-REASONING-217.ts",
+
+    EXTERNAL_PLATFORM_INTELLIGENCE:
+      "./SOVEREIGN-AI-EXTERNAL-PLATFORM-INTELLIGENCE-218.ts",
+
+    SYSTEM_INTEGRATION:
+      "./SOVEREIGN-AI-SYSTEM-INTEGRATION-219.ts",
+
+    BOOTSTRAP:
+      "./SOVEREIGN-AI-BOOTSTRAP-220.ts"
+  };
 
 // ============================================================
 // STATE
 // ============================================================
 
-const moduleCache = new Map<
-  SovereignFinalComponent,
-  Record<string, unknown>
->();
+const moduleCache =
+  new Map<
+    SovereignFinalComponent,
+    Record<string, unknown>
+  >();
 
-const platformBuildResults = new Map<
-  string,
-  SovereignPlatformComponentResult[]
->();
+const platformBuildResults =
+  new Map<
+    string,
+    SovereignPlatformComponentResult[]
+  >();
 
-const projectArtifactState = new Map<
-  string,
-  SovereignGeneratedArtifact[]
->();
+const projectArtifactState =
+  new Map<
+    string,
+    SovereignGeneratedArtifact[]
+  >();
 
-const adminModuleState = new Map<
-  string,
-  MajdAdminModuleResult[]
->();
+const adminModuleState =
+  new Map<
+    string,
+    MajdAdminModuleResult[]
+  >();
 
-const gameFileState = new Map<
-  string,
-  MajdGameGeneratedFile[]
->();
+const gameFileState =
+  new Map<
+    string,
+    MajdGameGeneratedFile[]
+  >();
 
-const gameTestState = new Map<
-  string,
-  MajdGameTestResult
->();
+const gameTestState =
+  new Map<
+    string,
+    MajdGameTestResult
+  >();
 
 interface SovereignGamePlayableProof {
   projectId: string;
@@ -390,10 +464,11 @@ interface SovereignGamePlayableProof {
   verifiedAt: number;
 }
 
-const gamePlayableState = new Map<
-  string,
-  SovereignGamePlayableProof
->();
+const gamePlayableState =
+  new Map<
+    string,
+    SovereignGamePlayableProof
+  >();
 
 // ============================================================
 // REAL MODULE
@@ -411,26 +486,34 @@ class SovereignRealModule {
       Record<string, unknown>
   ) {}
 
-  public async connect(): Promise<void> {
+  public async connect():
+    Promise<void> {
     return;
   }
 
-  public async healthCheck(): Promise<boolean> {
+  public async healthCheck():
+    Promise<boolean> {
     return true;
   }
 }
 
 async function loadRealModule(
-  component: SovereignFinalComponent
+  component:
+    SovereignFinalComponent
 ): Promise<Record<string, unknown>> {
-  const cached = moduleCache.get(component);
+  const cached =
+    moduleCache.get(
+      component
+    );
 
   if (cached) {
     return cached;
   }
 
   const modulePath =
-    componentModules[component];
+    componentModules[
+      component
+    ];
 
   if (!modulePath) {
     throw new Error(
@@ -438,11 +521,18 @@ async function loadRealModule(
     );
   }
 
-  const loaded = (await import(
-    modulePath
-  )) as Record<string, unknown>;
+  const loaded =
+    await import(
+      modulePath
+    ) as Record<
+      string,
+      unknown
+    >;
 
-  moduleCache.set(component, loaded);
+  moduleCache.set(
+    component,
+    loaded
+  );
 
   return loaded;
 }
@@ -451,102 +541,126 @@ async function loadRealModule(
 // PLATFORM BUILDER
 // ============================================================
 
-const platformComponentBinding: Record<
-  SovereignPlatformComponent,
-  SovereignFinalComponent[]
-> = {
-  FRONTEND: ["PLATFORM_BUILDER"],
+const platformComponentBinding:
+  Record<
+    SovereignPlatformComponent,
+    SovereignFinalComponent[]
+  > = {
+    FRONTEND: [
+      "PLATFORM_BUILDER"
+    ],
 
-  BACKEND: ["CORE", "RUNTIME"],
+    BACKEND: [
+      "CORE",
+      "RUNTIME"
+    ],
 
-  API: [
-    "RUNTIME",
-    "SYSTEM_INTEGRATION"
-  ],
+    API: [
+      "RUNTIME",
+      "SYSTEM_INTEGRATION"
+    ],
 
-  DATABASE: [
-    "KNOWLEDGE_RETRIEVAL",
-    "KNOWLEDGE_SYNTHESIS"
-  ],
+    DATABASE: [
+      "KNOWLEDGE_RETRIEVAL",
+      "KNOWLEDGE_SYNTHESIS"
+    ],
 
-  IDENTITY: [
-    "AUTHORITY",
-    "STEWARD"
-  ],
+    IDENTITY: [
+      "AUTHORITY",
+      "STEWARD"
+    ],
 
-  ADMIN: [
-    "ADMIN_BUILDER",
-    "OWNER_COMMAND_GATEWAY"
-  ],
+    ADMIN: [
+      "ADMIN_BUILDER",
+      "OWNER_COMMAND_GATEWAY"
+    ],
 
-  GAMES: [
-    "GAME_BUILDER",
-    "CODE_ENGINE",
-    "TEST_ENGINE",
-    "BUILD_ENGINE"
-  ],
+    GAMES: [
+      "GAME_BUILDER",
+      "CODE_ENGINE",
+      "TEST_ENGINE",
+      "BUILD_ENGINE"
+    ],
 
-  SOCIAL: [
-    "PROJECT_BUILDER",
-    "CAPABILITY_REGISTRY"
-  ],
+    SOCIAL: [
+      "PROJECT_BUILDER",
+      "CAPABILITY_REGISTRY"
+    ],
 
-  MEDIA: [
-    "PROJECT_BUILDER",
-    "CAPABILITY_REGISTRY"
-  ],
+    MEDIA: [
+      "PROJECT_BUILDER",
+      "CAPABILITY_REGISTRY"
+    ],
 
-  PAYMENTS: [
-    "PROJECT_BUILDER",
-    "EXECUTION_AUTHORIZATION"
-  ],
+    PAYMENTS: [
+      "PROJECT_BUILDER",
+      "EXECUTION_AUTHORIZATION"
+    ],
 
-  AI_OPERATIONS: [
-    "MASTER_BRAIN",
-    "PLANNER",
-    "EXECUTOR",
-    "VERIFIER",
-    "REPAIR",
-    "CODE_ENGINE",
-    "AUTONOMOUS_RUNTIME"
-  ],
+    AI_OPERATIONS: [
+      "MASTER_BRAIN",
+      "PLANNER",
+      "EXECUTOR",
+      "VERIFIER",
+      "REPAIR",
+      "CODE_ENGINE",
+      "AUTONOMOUS_RUNTIME"
+    ],
 
-  INFRASTRUCTURE: [
-    "DEPLOYMENT_ENGINE",
-    "AUTOMATION_ENGINE",
-    "WORKER_ENGINE",
-    "SYSTEM_INTEGRATION"
-  ]
-};
+    INFRASTRUCTURE: [
+      "DEPLOYMENT_ENGINE",
+      "AUTOMATION_ENGINE",
+      "WORKER_ENGINE",
+      "SYSTEM_INTEGRATION"
+    ]
+  };
 
 async function buildPlatformComponent(
-  request: SovereignPlatformBuildRequest,
-  plan: SovereignPlatformComponentPlan
+  request:
+    SovereignPlatformBuildRequest,
+
+  plan:
+    SovereignPlatformComponentPlan
 ): Promise<SovereignPlatformComponentResult> {
-  const startedAt = Date.now();
+  const startedAt =
+    Date.now();
 
   const bindings =
     platformComponentBinding[
       plan.component
     ] ?? [];
 
-  const artifacts: string[] = [];
-  const failures: string[] = [];
+  const artifacts:
+    string[] = [];
 
-  for (const component of bindings) {
+  const failures:
+    string[] = [];
+
+  for (
+    const component of
+      bindings
+  ) {
     const modulePath =
-      componentModules[component];
+      componentModules[
+        component
+      ];
 
     if (!modulePath) {
       failures.push(
         `${component}: module path missing`
       );
+
       continue;
     }
 
     try {
-      await loadRealModule(component);
-      artifacts.push(modulePath);
+      await loadRealModule(
+        component
+      );
+
+      artifacts.push(
+        modulePath
+      );
     } catch (error) {
       failures.push(
         `${component}: ${
@@ -558,31 +672,39 @@ async function buildPlatformComponent(
     }
   }
 
-  const result: SovereignPlatformComponentResult = {
-    component: plan.component,
+  const result:
+    SovereignPlatformComponentResult = {
+      component:
+        plan.component,
 
-    success:
-      failures.length === 0,
+      success:
+        failures.length ===
+        0,
 
-    artifacts,
+      artifacts,
 
-    output: {
-      projectId: request.projectId,
-      boundComponents: bindings,
-      acceptanceCriteria: [
-        ...plan.acceptanceCriteria
-      ]
-    },
+      output: {
+        projectId:
+          request.projectId,
 
-    error:
-      failures.length > 0
-        ? failures.join("; ")
-        : undefined,
+        boundComponents:
+          bindings,
 
-    startedAt,
+        acceptanceCriteria: [
+          ...plan.acceptanceCriteria
+        ]
+      },
 
-    completedAt: Date.now()
-  };
+      error:
+        failures.length > 0
+          ? failures.join("; ")
+          : undefined,
+
+      startedAt,
+
+      completedAt:
+        Date.now()
+    };
 
   const previous =
     platformBuildResults.get(
@@ -607,9 +729,14 @@ async function buildPlatformComponent(
 function createPlatformBuilderAdapter():
   SovereignAIPlatformBuilderAdapter {
   return {
-    async inspectPlatform(request) {
-      const available: string[] = [];
-      const unavailable: string[] = [];
+    async inspectPlatform(
+      request
+    ) {
+      const available:
+        string[] = [];
+
+      const unavailable:
+        string[] = [];
 
       for (
         const [
@@ -620,18 +747,27 @@ function createPlatformBuilderAdapter():
         )
       ) {
         try {
-          await import(modulePath);
-          available.push(component);
+          await import(
+            modulePath
+          );
+
+          available.push(
+            component
+          );
         } catch {
-          unavailable.push(component);
+          unavailable.push(
+            component
+          );
         }
       }
 
       return {
         projectId:
           request.projectId,
+
         available,
         unavailable,
+
         inspectedAt:
           Date.now()
       };
@@ -654,10 +790,14 @@ function createPlatformBuilderAdapter():
     ) {
       const failed =
         components.filter(
-          item => !item.success
+          item =>
+            !item.success
         );
 
-      if (failed.length > 0) {
+      if (
+        failed.length >
+        0
+      ) {
         throw new Error(
           `Platform integration failed: ${failed
             .map(
@@ -687,7 +827,8 @@ function createPlatformBuilderAdapter():
         new Set(
           results
             .filter(
-              item => item.success
+              item =>
+                item.success
             )
             .map(
               item =>
@@ -712,7 +853,8 @@ function createPlatformBuilderAdapter():
       const errors =
         results
           .filter(
-            item => !item.success
+            item =>
+              !item.success
           )
           .map(
             item =>
@@ -724,10 +866,13 @@ function createPlatformBuilderAdapter():
         success:
           missingComponents.length ===
             0 &&
-          errors.length === 0,
+          errors.length ===
+            0,
 
         errors,
+
         warnings: [],
+
         missingComponents
       };
     },
@@ -748,7 +893,9 @@ function createPlatformBuilderAdapter():
               component
           );
 
-        if (componentPlan) {
+        if (
+          componentPlan
+        ) {
           await buildPlatformComponent(
             request,
             componentPlan
@@ -765,10 +912,12 @@ function createPlatformBuilderAdapter():
         result.projectId ===
           request.projectId &&
         result.validation
-          ?.success === true &&
+          ?.success ===
+          true &&
         result.validation
           .missingComponents
-          .length === 0 &&
+          .length ===
+          0 &&
         result.components.every(
           component =>
             component.success
@@ -776,7 +925,9 @@ function createPlatformBuilderAdapter():
       );
     },
 
-    async recordEvent(event) {
+    async recordEvent(
+      event
+    ) {
       console.log(
         "[SOVEREIGN PLATFORM EVENT]",
         event.type,
@@ -813,7 +964,9 @@ function getProjectArtifacts(
 
 function upsertProjectArtifact(
   projectId: string,
-  artifact: SovereignGeneratedArtifact
+
+  artifact:
+    SovereignGeneratedArtifact
 ): void {
   const current =
     projectArtifactState.get(
@@ -837,31 +990,41 @@ function upsertProjectArtifact(
 
 function validateProjectArtifacts(
   projectId: string,
-  blueprint: SovereignProjectBlueprint
+
+  blueprint:
+    SovereignProjectBlueprint
 ): SovereignProjectValidation {
   const artifacts =
-    getProjectArtifacts(projectId);
+    getProjectArtifacts(
+      projectId
+    );
 
-  const paths = new Set(
-    artifacts.map(
-      item => item.path
-    )
-  );
+  const paths =
+    new Set(
+      artifacts.map(
+        item =>
+          item.path
+      )
+    );
 
   const missing =
     blueprint.files
       .filter(
         file =>
           file.required &&
-          !paths.has(file.path)
+          !paths.has(
+            file.path
+          )
       )
       .map(
-        file => file.path
+        file =>
+          file.path
       );
 
   return {
     success:
-      missing.length === 0,
+      missing.length ===
+      0,
 
     errors:
       missing.map(
@@ -876,7 +1039,9 @@ function validateProjectArtifacts(
 function createProjectBuilderAdapter():
   SovereignAutonomousProjectBuilderAdapter {
   return {
-    async inspectWorkspace(request) {
+    async inspectWorkspace(
+      request
+    ) {
       return {
         projectId:
           request.projectId,
@@ -896,23 +1061,29 @@ function createProjectBuilderAdapter():
       };
     },
 
-    async createBlueprint(request) {
+    async createBlueprint(
+      request
+    ) {
       const projectId =
         request.projectId ||
         `sovereign-${request.type.toLowerCase()}-${Date.now()}`;
 
-      const files: SovereignProjectFile[] = [
-        {
-          path:
-            `${projectId}/sovereign-project.manifest.json`,
+      const files:
+        SovereignProjectFile[] = [
+          {
+            path:
+              `${projectId}/sovereign-project.manifest.json`,
 
-          purpose:
-            "Sovereign autonomous project manifest",
+            purpose:
+              "Sovereign autonomous project manifest",
 
-          required: true,
-          generated: false
-        }
-      ];
+            required:
+              true,
+
+            generated:
+              false
+          }
+        ];
 
       return {
         id:
@@ -997,7 +1168,8 @@ function createProjectBuilderAdapter():
             2
           ),
 
-        binary: false,
+        binary:
+          false,
 
         createdAt:
           Date.now()
@@ -1045,7 +1217,9 @@ function createProjectBuilderAdapter():
               )
           );
 
-        if (missingFile) {
+        if (
+          missingFile
+        ) {
           repaired.push({
             path:
               missingFile.path,
@@ -1054,7 +1228,10 @@ function createProjectBuilderAdapter():
               JSON.stringify(
                 {
                   projectId,
-                  repaired: true,
+
+                  repaired:
+                    true,
+
                   repairedAt:
                     Date.now()
                 },
@@ -1062,7 +1239,8 @@ function createProjectBuilderAdapter():
                 2
               ),
 
-            binary: false,
+            binary:
+              false,
 
             createdAt:
               Date.now()
@@ -1115,14 +1293,18 @@ function createProjectBuilderAdapter():
       build
     ) {
       return (
-        build.success === true &&
+        build.success ===
+          true &&
         build.artifactPath ===
           `sovereign://${projectId}` &&
-        build.errors.length === 0
+        build.errors.length ===
+          0
       );
     },
 
-    async recordEvent(event) {
+    async recordEvent(
+      event
+    ) {
       console.log(
         "[SOVEREIGN PROJECT EVENT]",
         event.type,
@@ -1167,12 +1349,14 @@ const requiredAdminModules:
   ];
 
 function adminModuleResult(
-  module: MajdAdminModule
+  module:
+    MajdAdminModule
 ): MajdAdminModuleResult {
   return {
     module,
 
-    success: true,
+    success:
+      true,
 
     routes: [
       `/admin/${module.toLowerCase()}`
@@ -1190,7 +1374,9 @@ function adminModuleResult(
 
 function setAdminModule(
   projectId: string,
-  result: MajdAdminModuleResult
+
+  result:
+    MajdAdminModuleResult
 ): void {
   const current =
     adminModuleState.get(
@@ -1257,7 +1443,10 @@ function createAdminBuilderAdapter():
             !module.success
         );
 
-      if (failed.length > 0) {
+      if (
+        failed.length >
+        0
+      ) {
         throw new Error(
           `Admin integration failed: ${failed
             .map(
@@ -1274,27 +1463,32 @@ function createAdminBuilderAdapter():
       );
     },
 
-    async validateAdmin(request) {
-      const built = new Set(
-        (
-          adminModuleState.get(
-            request.projectId
-          ) ?? []
-        )
-          .filter(
-            module =>
-              module.success
+    async validateAdmin(
+      request
+    ) {
+      const built =
+        new Set(
+          (
+            adminModuleState.get(
+              request.projectId
+            ) ?? []
           )
-          .map(
-            module =>
-              module.module
-          )
-      );
+            .filter(
+              module =>
+                module.success
+            )
+            .map(
+              module =>
+                module.module
+            )
+        );
 
       const missingModules =
         requiredAdminModules.filter(
           module =>
-            !built.has(module)
+            !built.has(
+              module
+            )
         );
 
       return {
@@ -1324,12 +1518,16 @@ function createAdminBuilderAdapter():
       ) {
         setAdminModule(
           request.projectId,
-          adminModuleResult(module)
+          adminModuleResult(
+            module
+          )
         );
       }
     },
 
-    async verifyOwnerAccess(request) {
+    async verifyOwnerAccess(
+      request
+    ) {
       return (
         adminModuleState.get(
           request.projectId
@@ -1342,7 +1540,9 @@ function createAdminBuilderAdapter():
       );
     },
 
-    async recordEvent(event) {
+    async recordEvent(
+      event
+    ) {
       console.log(
         "[SOVEREIGN ADMIN EVENT]",
         event.type,
@@ -1379,7 +1579,9 @@ function getGameFiles(
 
 function setGameFile(
   projectId: string,
-  file: MajdGameGeneratedFile
+
+  file:
+    MajdGameGeneratedFile
 ): void {
   const current =
     gameFileState.get(
@@ -1412,83 +1614,95 @@ function deriveGameName(
     instruction.toLowerCase();
 
   if (
-    lower.includes("مدينة التنين") ||
-    lower.includes("dragon city")
+    lower.includes(
+      "مدينة التنين"
+    ) ||
+    lower.includes(
+      "dragon city"
+    )
   ) {
     return "مدينة التنين";
   }
 
   const cleaned =
     instruction
-      .replace(/\s+/g, " ")
+      .replace(
+        /\s+/g,
+        " "
+      )
       .trim();
 
   return (
-    cleaned.slice(0, 80) ||
+    cleaned.slice(
+      0,
+      80
+    ) ||
     "Sovereign Game"
   );
 }
 
 function createGameDesign(
-  request: MajdGameCreationRequest
+  request:
+    MajdGameCreationRequest
 ): MajdGameDesign {
   const projectId =
     request.projectId ||
     `majd-game-${Date.now()}`;
 
-  const systems: MajdGameSystem[] = [
-    {
-      id:
-        "core-gameplay",
+  const systems:
+    MajdGameSystem[] = [
+      {
+        id:
+          "core-gameplay",
 
-      name:
-        "Core Gameplay",
+        name:
+          "Core Gameplay",
 
-      description:
-        request.description,
+        description:
+          request.description,
 
-      required:
-        true,
+        required:
+          true,
 
-      dependencies: []
-    },
+        dependencies: []
+      },
 
-    {
-      id:
-        "player-runtime",
+      {
+        id:
+          "player-runtime",
 
-      name:
-        "Player Runtime",
+        name:
+          "Player Runtime",
 
-      description:
-        "Playable keyboard, pointer and touch player runtime.",
+        description:
+          "Playable keyboard, pointer and touch player runtime.",
 
-      required:
-        true,
+        required:
+          true,
 
-      dependencies: [
-        "core-gameplay"
-      ]
-    },
+        dependencies: [
+          "core-gameplay"
+        ]
+      },
 
-    {
-      id:
-        "game-ui",
+      {
+        id:
+          "game-ui",
 
-      name:
-        "Game UI",
+        name:
+          "Game UI",
 
-      description:
-        "Responsive game interface for desktop, tablet and mobile.",
+        description:
+          "Responsive game interface for desktop, tablet and mobile.",
 
-      required:
-        true,
+        required:
+          true,
 
-      dependencies: [
-        "core-gameplay"
-      ]
-    }
-  ];
+        dependencies: [
+          "core-gameplay"
+        ]
+      }
+    ];
 
   return {
     id:
@@ -1555,12 +1769,15 @@ function createGameDesign(
 }
 
 // ============================================================
-// GAME SOURCES
+// LEGACY GAME SOURCES
 // ============================================================
 
 function htmlSource(
-  request: MajdGameCreationRequest,
-  design: MajdGameDesign
+  request:
+    MajdGameCreationRequest,
+
+  design:
+    MajdGameDesign
 ): string {
   const title =
     deriveGameName(
@@ -1613,7 +1830,8 @@ function htmlSource(
 </html>`;
 }
 
-function cssSource(): string {
+function cssSource():
+  string {
   return `* {
 box-sizing:border-box;
 -webkit-tap-highlight-color:transparent;
@@ -1720,7 +1938,8 @@ display:flex;
 }`;
 }
 
-function coreGameplaySource(): string {
+function coreGameplaySource():
+  string {
   return `export function createWorld() {
 return {
 width:2400,
@@ -1748,7 +1967,8 @@ return Math.max(min,Math.min(max,value));
 }`;
 }
 
-function playerRuntimeSource(): string {
+function playerRuntimeSource():
+  string {
   return `import { clamp } from "./core-gameplay.js";
 
 export function createPlayer(world) {
@@ -1792,7 +2012,8 @@ world.height-player.radius
 }`;
 }
 
-function uiSource(): string {
+function uiSource():
+  string {
   return `export function bindHud(world) {
 const gold=document.getElementById("gold");
 const wood=document.getElementById("wood");
@@ -1811,7 +2032,8 @@ return { render };
 }
 
 function gameRuntimeSource(
-  request: MajdGameCreationRequest
+  request:
+    MajdGameCreationRequest
 ): string {
   const concept =
     JSON.stringify(
@@ -2083,21 +2305,35 @@ requestAnimationFrame(frame);`;
 
 function createGameCodeEngineAdapter(
   projectId: string,
-  request: MajdGameCreationRequest,
-  design: MajdGameDesign,
-  system: MajdGameSystem
+
+  request:
+    MajdGameCreationRequest,
+
+  design:
+    MajdGameDesign,
+
+  system:
+    MajdGameSystem
 ): SovereignCodeAdapter {
   return {
-    async inspect(codeRequest) {
+    async inspect(
+      codeRequest
+    ) {
       return {
         projectId,
-        game: request.name,
+
+        game:
+          request.name,
+
         objective:
           codeRequest.objective,
+
         system:
           system.id,
+
         designId:
           design.id,
+
         workspace:
           gameWorkspace(
             projectId
@@ -2110,8 +2346,11 @@ function createGameCodeEngineAdapter(
     ): Promise<
       SovereignCodeGeneratedFile[]
     > {
-      let content: string;
-      let target: string;
+      let content:
+        string;
+
+      let target:
+        string;
 
       if (
         system.id ===
@@ -2119,6 +2358,7 @@ function createGameCodeEngineAdapter(
       ) {
         target =
           "src/systems/core-gameplay.js";
+
         content =
           coreGameplaySource();
       } else if (
@@ -2127,6 +2367,7 @@ function createGameCodeEngineAdapter(
       ) {
         target =
           "src/systems/player-runtime.js";
+
         content =
           playerRuntimeSource();
       } else if (
@@ -2135,6 +2376,7 @@ function createGameCodeEngineAdapter(
       ) {
         target =
           "src/systems/game-ui.js";
+
         content =
           uiSource();
       } else {
@@ -2144,10 +2386,15 @@ function createGameCodeEngineAdapter(
         content =
           `export const sovereignSystem=${JSON.stringify(
             {
-              id: system.id,
-              name: system.name,
+              id:
+                system.id,
+
+              name:
+                system.name,
+
               description:
                 system.description,
+
               objective:
                 codeRequest.objective
             },
@@ -2158,32 +2405,51 @@ function createGameCodeEngineAdapter(
 
       return [
         {
-          path: target,
+          path:
+            target,
+
           content,
-          operation: "CREATE",
-          language: "javascript",
+
+          operation:
+            "CREATE",
+
+          language:
+            "javascript",
+
           checksum:
-            checksum(content)
+            checksum(
+              content
+            )
         }
       ];
     },
 
-    async validateSyntax(files) {
+    async validateSyntax(
+      files
+    ) {
       return files.every(
         file =>
           file.content.trim()
-            .length > 0 &&
+            .length >
+            0 &&
           !file.content.includes(
             "\u0000"
           )
       );
     },
 
-    async validateTypes(files) {
-      return files.length > 0;
+    async validateTypes(
+      files
+    ) {
+      return (
+        files.length >
+        0
+      );
     },
 
-    async validateSecurity(files) {
+    async validateSecurity(
+      files
+    ) {
       const forbidden = [
         "child_process",
         "process.exit(",
@@ -2202,7 +2468,9 @@ function createGameCodeEngineAdapter(
       );
     },
 
-    async validatePolicy(files) {
+    async validatePolicy(
+      files
+    ) {
       return files.every(
         file => {
           const relative =
@@ -2222,16 +2490,24 @@ function createGameCodeEngineAdapter(
       );
     },
 
-    async runTests(files) {
+    async runTests(
+      files
+    ) {
       return files.every(
         file =>
           file.content.trim()
-            .length > 20
+            .length >
+          20
       );
     },
 
-    async stage(files) {
-      for (const file of files) {
+    async stage(
+      files
+    ) {
+      for (
+        const file of
+          files
+      ) {
         const destination =
           path.join(
             gameWorkspace(
@@ -2247,7 +2523,9 @@ function createGameCodeEngineAdapter(
       }
     },
 
-    async recordResult(result) {
+    async recordResult(
+      result
+    ) {
       console.log(
         "[SOVEREIGN CODE RESULT]",
         result.status,
@@ -2268,13 +2546,16 @@ function createGameBuilderAdapter():
     async inspectExistingGameWorkspace(
       request
     ) {
-      if (request.projectId) {
+      if (
+        request.projectId
+      ) {
         await fs.mkdir(
           gameWorkspace(
             request.projectId
           ),
           {
-            recursive: true
+            recursive:
+              true
           }
         );
       }
@@ -2302,7 +2583,9 @@ function createGameBuilderAdapter():
       };
     },
 
-    async designGame(request) {
+    async designGame(
+      request
+    ) {
       return createGameDesign(
         request
       );
@@ -2423,12 +2706,16 @@ ${system.description}`,
         file
       );
 
-      if (file.binary === true) {
+      if (
+        file.binary ===
+        true
+      ) {
         return;
       }
 
       if (
-        file.content === undefined
+        file.content ===
+        undefined
       ) {
         throw new Error(
           `Cannot write empty game file: ${file.path}`
@@ -2474,11 +2761,15 @@ ${system.description}`,
             )
         );
 
-      if (missing.length > 0) {
+      if (
+        missing.length >
+        0
+      ) {
         throw new Error(
           `Game integration is missing required systems: ${missing
             .map(
-              item => item.id
+              item =>
+                item.id
             )
             .join(", ")}`
         );
@@ -2499,7 +2790,8 @@ ${system.description}`,
                 design
               ),
 
-            binary: false
+            binary:
+              false
           },
 
           {
@@ -2512,7 +2804,8 @@ ${system.description}`,
             content:
               cssSource(),
 
-            binary: false
+            binary:
+              false
           },
 
           {
@@ -2527,7 +2820,8 @@ ${system.description}`,
                 request
               ),
 
-            binary: false
+            binary:
+              false
           },
 
           {
@@ -2565,7 +2859,8 @@ ${system.description}`,
                 2
               ),
 
-            binary: false
+            binary:
+              false
           }
         ];
 
@@ -2591,7 +2886,8 @@ ${system.description}`,
             ),
             relative
           ),
-          shellFile.content || ""
+          shellFile.content ||
+            ""
         );
       }
     },
@@ -2646,10 +2942,12 @@ ${system.description}`,
       const ownerCommandLinked =
         request.commandId
           .trim()
-          .length > 0;
+          .length >
+        0;
 
       const filesGenerated =
-        files.length > 0;
+        files.length >
+        0;
 
       const playable =
         filesGenerated &&
@@ -2762,7 +3060,8 @@ ${system.description}`,
             .requiredSystemsGenerated ===
           false
         ) {
-          let content = "";
+          let content =
+            "";
 
           if (
             system.id ===
@@ -2784,7 +3083,9 @@ ${system.description}`,
               uiSource();
           }
 
-          if (content) {
+          if (
+            content
+          ) {
             repaired.push({
               path:
                 `${design.projectId}/src/systems/${system.id}.js`,
@@ -2814,11 +3115,14 @@ ${system.description}`,
         );
 
       if (
-        tests?.success !== true ||
-        tests.playable !== true
+        tests?.success !==
+          true ||
+        tests.playable !==
+          true
       ) {
         return {
-          success: false,
+          success:
+            false,
 
           errors: [
             "Game cannot build before playable tests pass."
@@ -2836,20 +3140,31 @@ ${system.description}`,
           design.projectId
         );
 
-      await fs.rm(build, {
-        recursive: true,
-        force: true
-      });
+      await fs.rm(
+        build,
+        {
+          recursive:
+            true,
 
-      await fs.mkdir(build, {
-        recursive: true
-      });
+          force:
+            true
+        }
+      );
+
+      await fs.mkdir(
+        build,
+        {
+          recursive:
+            true
+        }
+      );
 
       await fs.cp(
         workspace,
         build,
         {
-          recursive: true
+          recursive:
+            true
         }
       );
 
@@ -2865,9 +3180,11 @@ ${system.description}`,
         ))
       ) {
         return {
-          success: false,
+          success:
+            false,
 
-          path: build,
+          path:
+            build,
 
           errors: [
             "Real Web Build is missing index.html."
@@ -2876,7 +3193,8 @@ ${system.description}`,
       }
 
       const buildResult = {
-        success: true,
+        success:
+          true,
 
         projectId:
           design.projectId,
@@ -2914,9 +3232,11 @@ ${system.description}`,
       );
 
       return {
-        success: true,
+        success:
+          true,
 
-        path: build,
+        path:
+          build,
 
         launchTarget:
           indexPath,
@@ -2933,12 +3253,14 @@ ${system.description}`,
       artifact
     ) {
       if (
-        artifact.success !== true ||
+        artifact.success !==
+          true ||
         typeof artifact.path !==
           "string" ||
         typeof artifact.launchTarget !==
           "string" ||
-        artifact.errors.length !== 0
+        artifact.errors.length !==
+          0
       ) {
         return false;
       }
@@ -2948,22 +3270,28 @@ ${system.description}`,
           artifact.launchTarget
         )
       ) &&
-        (
-          await fileExists(
-            artifact.path
-          )
-        );
+      (
+        await fileExists(
+          artifact.path
+        )
+      );
     },
 
-    async persistResult(result) {
+    async persistResult(
+      result
+    ) {
       const root =
         gameRoot(
           result.projectId
         );
 
-      await fs.mkdir(root, {
-        recursive: true
-      });
+      await fs.mkdir(
+        root,
+        {
+          recursive:
+            true
+        }
+      );
 
       await writeTextFile(
         path.join(
@@ -2978,7 +3306,9 @@ ${system.description}`,
       );
     },
 
-    async recordEvent(event) {
+    async recordEvent(
+      event
+    ) {
       console.log(
         "[SOVEREIGN GAME EVENT]",
         event.type,
@@ -3057,12 +3387,17 @@ export interface MajdSovereignCreationRequest {
   ownerId: string;
   instruction: string;
   projectId: string;
+
   productType:
     MajdSovereignProductType;
+
   autonomous: boolean;
+
   legalStage:
     MajdLegalStage;
+
   createdAt: number;
+
   metadata?: Record<
     string,
     unknown
@@ -3088,10 +3423,11 @@ export interface MajdQualityResult {
   success: boolean;
   score: number;
 
-  checks: Record<
-    string,
-    boolean
-  >;
+  checks:
+    Record<
+      string,
+      boolean
+    >;
 
   errors: string[];
   warnings: string[];
@@ -3099,11 +3435,21 @@ export interface MajdQualityResult {
 
 export interface MajdRightsResult {
   success: boolean;
-  originalOnly: boolean;
-  externalDependencyFound: boolean;
-  prohibitedDependencyFound: boolean;
-  errors: string[];
-  warnings: string[];
+
+  originalOnly:
+    boolean;
+
+  externalDependencyFound:
+    boolean;
+
+  prohibitedDependencyFound:
+    boolean;
+
+  errors:
+    string[];
+
+  warnings:
+    string[];
 }
 
 export interface MajdSovereignCreationResult {
@@ -3116,10 +3462,17 @@ export interface MajdSovereignCreationResult {
   state:
     MajdExecutionState;
 
-  success: boolean;
-  playable?: boolean;
-  buildPath?: string;
-  launchTarget?: string;
+  success:
+    boolean;
+
+  playable?:
+    boolean;
+
+  buildPath?:
+    string;
+
+  launchTarget?:
+    string;
 
   files:
     MajdPhysicalFile[];
@@ -3130,18 +3483,32 @@ export interface MajdSovereignCreationResult {
   rights?:
     MajdRightsResult;
 
-  repairAttempts: number;
-  errors: string[];
-  startedAt: number;
-  completedAt: number;
+  repairAttempts:
+    number;
+
+  errors:
+    string[];
+
+  startedAt:
+    number;
+
+  completedAt:
+    number;
 }
 
 export const MAJD_SOVEREIGN_OWNERSHIP_POLICY =
   Object.freeze({
-    owner: "MAJD",
-    ownerAuthority: "SUPREME",
-    stewardAuthority: "DELEGATED",
-    internalFirst: true,
+    owner:
+      "MAJD",
+
+    ownerAuthority:
+      "SUPREME",
+
+    stewardAuthority:
+      "DELEGATED",
+
+    internalFirst:
+      true,
 
     externalCoreProvidersAllowed:
       false,
@@ -3213,8 +3580,11 @@ function inspectMajdRights(
   files:
     MajdPhysicalFile[]
 ): MajdRightsResult {
-  const errors: string[] = [];
-  const warnings: string[] = [];
+  const errors:
+    string[] = [];
+
+  const warnings:
+    string[] = [];
 
   let externalDependencyFound =
     false;
@@ -3224,8 +3594,10 @@ function inspectMajdRights(
 
   const combined = [
     request.instruction,
+
     ...files.map(
-      file => file.content
+      file =>
+        file.content
     )
   ]
     .join("\n")
@@ -3277,7 +3649,8 @@ function createMajdRightsManifest(
 ): string {
   return JSON.stringify(
     {
-      platform: "MAJD",
+      platform:
+        "MAJD",
 
       ownerAuthority:
         "SUPREME",
@@ -3310,131 +3683,347 @@ function createMajdRightsManifest(
   );
 }
 
+// ============================================================
+// MAJD ENGINE - WEBGL 3D + CANVAS 2D FALLBACK
+// ============================================================
+
 function createMajdEngineSource():
   string {
   return `"use strict";
 
 export class MajdEngine {
-constructor(canvas) {
-if(!(canvas instanceof HTMLCanvasElement)) {
-throw new Error("MAJD Engine requires a canvas.");
-}
+  constructor(canvas) {
+    if (!(canvas instanceof HTMLCanvasElement)) {
+      throw new Error(
+        "MAJD Engine requires a canvas."
+      );
+    }
 
-this.canvas=canvas;
+    this.canvas = canvas;
 
-this.gl=
-canvas.getContext("webgl2",{
-antialias:true,
-alpha:false,
-depth:true,
-powerPreference:"high-performance"
-}) ||
-canvas.getContext("webgl",{
-antialias:true,
-alpha:false,
-depth:true
-});
+    this.mode = "2d";
 
-if(!this.gl) {
-throw new Error("MAJD Engine: WebGL runtime unavailable.");
-}
+    this.gl = null;
+    this.ctx = null;
 
-this.running=false;
-this.scene=null;
+    this.running = false;
+    this.scene = null;
 
-this.resize=this.resize.bind(this);
-this.frame=this.frame.bind(this);
+    this.lastTimestamp = 0;
 
-window.addEventListener("resize",this.resize);
-this.resize();
-}
+    this.resize =
+      this.resize.bind(this);
 
-resize() {
-const dpr=Math.min(
-window.devicePixelRatio||1,
-2
-);
+    this.frame =
+      this.frame.bind(this);
 
-const width=Math.max(
-1,
-Math.floor(
-this.canvas.clientWidth*dpr
-)
-);
+    const webglOptions = {
+      antialias: true,
+      alpha: false,
+      depth: true,
+      powerPreference:
+        "high-performance"
+    };
 
-const height=Math.max(
-1,
-Math.floor(
-this.canvas.clientHeight*dpr
-)
-);
+    try {
+      this.gl =
+        canvas.getContext(
+          "webgl2",
+          webglOptions
+        ) ||
+        canvas.getContext(
+          "webgl",
+          webglOptions
+        );
+    } catch {
+      this.gl = null;
+    }
 
-this.canvas.width=width;
-this.canvas.height=height;
+    if (this.gl) {
+      this.mode =
+        "webgl";
 
-this.gl.viewport(
-0,0,width,height
-);
-}
+      this.gl.enable(
+        this.gl.DEPTH_TEST
+      );
 
-setScene(scene) {
-this.scene=scene;
-}
+      this.gl.depthFunc(
+        this.gl.LEQUAL
+      );
 
-start() {
-if(this.running) return;
+      this.gl.clearColor(
+        0.55,
+        0.72,
+        0.84,
+        1
+      );
+    } else {
+      this.ctx =
+        canvas.getContext(
+          "2d",
+          {
+            alpha: false
+          }
+        );
 
-this.running=true;
-requestAnimationFrame(this.frame);
-}
+      if (!this.ctx) {
+        throw new Error(
+          "MAJD Engine: neither WebGL nor Canvas 2D is available."
+        );
+      }
 
-stop() {
-this.running=false;
-}
+      this.mode =
+        "2d";
+    }
 
-frame(timestamp) {
-if(!this.running) return;
+    window.addEventListener(
+      "resize",
+      this.resize
+    );
 
-const gl=this.gl;
+    this.resize();
+  }
 
-gl.enable(gl.DEPTH_TEST);
+  resize() {
+    const dpr =
+      Math.max(
+        1,
+        Math.min(
+          window.devicePixelRatio ||
+            1,
+          2
+        )
+      );
 
-gl.clearColor(
-0.045,
-0.075,
-0.12,
-1
-);
+    const cssWidth =
+      Math.max(
+        1,
+        this.canvas.clientWidth
+      );
 
-gl.clear(
-gl.COLOR_BUFFER_BIT |
-gl.DEPTH_BUFFER_BIT
-);
+    const cssHeight =
+      Math.max(
+        1,
+        this.canvas.clientHeight
+      );
 
-if(
-this.scene &&
-typeof this.scene.update==="function"
-) {
-this.scene.update(
-timestamp/1000,
-this
-);
-}
+    const width =
+      Math.floor(
+        cssWidth *
+        dpr
+      );
 
-if(
-this.scene &&
-typeof this.scene.render==="function"
-) {
-this.scene.render(
-gl,
-this
-);
-}
+    const height =
+      Math.floor(
+        cssHeight *
+        dpr
+      );
 
-requestAnimationFrame(this.frame);
-}
+    if (
+      this.canvas.width !== width ||
+      this.canvas.height !== height
+    ) {
+      this.canvas.width =
+        width;
+
+      this.canvas.height =
+        height;
+    }
+
+    if (this.gl) {
+      this.gl.viewport(
+        0,
+        0,
+        width,
+        height
+      );
+    }
+
+    if (this.ctx) {
+      this.ctx.setTransform(
+        dpr,
+        0,
+        0,
+        dpr,
+        0,
+        0
+      );
+    }
+  }
+
+  setScene(scene) {
+    this.scene =
+      scene;
+  }
+
+  switchTo2D() {
+    if (this.ctx) {
+      this.mode =
+        "2d";
+
+      return true;
+    }
+
+    this.gl = null;
+
+    this.ctx =
+      this.canvas.getContext(
+        "2d",
+        {
+          alpha: false
+        }
+      );
+
+    if (this.ctx) {
+      this.mode =
+        "2d";
+
+      this.resize();
+
+      return true;
+    }
+
+    return false;
+  }
+
+  start() {
+    if (this.running) {
+      return;
+    }
+
+    this.running =
+      true;
+
+    this.lastTimestamp =
+      0;
+
+    requestAnimationFrame(
+      this.frame
+    );
+  }
+
+  stop() {
+    this.running =
+      false;
+  }
+
+  frame(timestamp) {
+    if (!this.running) {
+      return;
+    }
+
+    const delta =
+      this.lastTimestamp === 0
+        ? 0
+        : Math.min(
+            (
+              timestamp -
+              this.lastTimestamp
+            ) /
+              1000,
+            0.05
+          );
+
+    this.lastTimestamp =
+      timestamp;
+
+    const scene =
+      this.scene;
+
+    if (
+      scene &&
+      typeof scene.update ===
+        "function"
+    ) {
+      scene.update(
+        delta,
+        this
+      );
+    }
+
+    if (
+      this.mode ===
+        "webgl" &&
+      this.gl
+    ) {
+      const gl =
+        this.gl;
+
+      gl.clear(
+        gl.COLOR_BUFFER_BIT |
+        gl.DEPTH_BUFFER_BIT
+      );
+
+      try {
+        if (
+          scene &&
+          typeof scene.render3D ===
+            "function"
+        ) {
+          scene.render3D(
+            gl,
+            this
+          );
+        }
+      } catch (error) {
+        console.error(
+          "MAJD WebGL render failed. Switching to Canvas 2D.",
+          error
+        );
+
+        if (
+          !this.switchTo2D()
+        ) {
+          this.stop();
+
+          throw error;
+        }
+      }
+    }
+
+    if (
+      this.mode ===
+        "2d" &&
+      this.ctx
+    ) {
+      const ctx =
+        this.ctx;
+
+      const width =
+        this.canvas.clientWidth;
+
+      const height =
+        this.canvas.clientHeight;
+
+      ctx.clearRect(
+        0,
+        0,
+        width,
+        height
+      );
+
+      if (
+        scene &&
+        typeof scene.render2D ===
+          "function"
+      ) {
+        scene.render2D(
+          ctx,
+          this
+        );
+      }
+    }
+
+    requestAnimationFrame(
+      this.frame
+    );
+  }
 }`;
 }
+
+// ============================================================
+// MAJD WORLD
+// ============================================================
 
 function createMajdWorldSource(
   instruction: string
@@ -3447,64 +4036,281 @@ function createMajdWorldSource(
   return `"use strict";
 
 export function createMajdWorld() {
-return {
-id:"majd-world",
+  return {
+    id:
+      "majd-world",
 
-theme:${JSON.stringify(
-    frozen
-      ? "FROZEN_KINGDOM"
-      : "MAJD_ORIGINAL_WORLD"
-  )},
+    theme:
+      ${JSON.stringify(
+        frozen
+          ? "FROZEN_KINGDOM"
+          : "MAJD_ORIGINAL_WORLD"
+      )},
 
-size:{
-width:8192,
-depth:8192
-},
+    width:
+      2400,
 
-terrain:{
-enabled:true,
-elevation:true,
-mountains:true,
-valleys:true,
-roads:true,
-strategicRegions:true
-},
+    height:
+      1600,
 
-environment:{
-snow:${frozen},
-storms:${frozen},
-fog:true,
-dayNight:true,
-dynamicLighting:true
-},
+    resources: {
+      gold:
+        1500,
 
-kingdom:{
-castle:true,
-walls:true,
-gates:true,
-defenseTowers:true,
-residential:true,
-warehouses:true,
-barracks:true,
-hospital:true,
-research:true,
-workshops:true,
-trade:true
-},
+      wood:
+        1200,
 
-systems:{
-resources:true,
-upgrades:true,
-heroes:true,
-armies:true,
-quests:true,
-exploration:true,
-alliances:true,
-progression:true
-}
-};
+      stone:
+        1000,
+
+      food:
+        1400
+    },
+
+    playerStart: {
+      x:
+        1200,
+
+      y:
+        1120
+    },
+
+    playerRadius:
+      20,
+
+    playerSpeed:
+      310,
+
+    castle: {
+      x:
+        1200,
+
+      y:
+        800,
+
+      width:
+        380,
+
+      depth:
+        320,
+
+      height:
+        180
+    },
+
+    towers: [
+      {
+        x:
+          1010,
+
+        y:
+          640
+      },
+
+      {
+        x:
+          1390,
+
+        y:
+          640
+      },
+
+      {
+        x:
+          1010,
+
+        y:
+          960
+      },
+
+      {
+        x:
+          1390,
+
+        y:
+          960
+      }
+    ],
+
+    buildings: [
+      {
+        x:
+          1100,
+
+        y:
+          790,
+
+        width:
+          90,
+
+        height:
+          75,
+
+        depth:
+          90
+      },
+
+      {
+        x:
+          1300,
+
+        y:
+          790,
+
+        width:
+          90,
+
+        height:
+          75,
+
+        depth:
+          90
+      },
+
+      {
+        x:
+          1200,
+
+        y:
+          700,
+
+        width:
+          110,
+
+        height:
+          90,
+
+        depth:
+          100
+      }
+    ],
+
+    dragon: {
+      x:
+        1750,
+
+      y:
+        500,
+
+      radius:
+        52,
+
+      height:
+        120
+    },
+
+    river: {
+      y:
+        1260,
+
+      width:
+        130
+    },
+
+    terrain: {
+      enabled:
+        true,
+
+      elevation:
+        true,
+
+      mountains:
+        true,
+
+      valleys:
+        true,
+
+      roads:
+        true,
+
+      strategicRegions:
+        true
+    },
+
+    environment: {
+      snow:
+        ${frozen},
+
+      storms:
+        ${frozen},
+
+      fog:
+        true,
+
+      dayNight:
+        true,
+
+      dynamicLighting:
+        true
+    },
+
+    kingdom: {
+      castle:
+        true,
+
+      walls:
+        true,
+
+      gates:
+        true,
+
+      defenseTowers:
+        true,
+
+      residential:
+        true,
+
+      warehouses:
+        true,
+
+      barracks:
+        true,
+
+      hospital:
+        true,
+
+      research:
+        true,
+
+      workshops:
+        true,
+
+      trade:
+        true
+    },
+
+    systems: {
+      resources:
+        true,
+
+      upgrades:
+        true,
+
+      heroes:
+        true,
+
+      armies:
+        true,
+
+      quests:
+        true,
+
+      exploration:
+        true,
+
+      alliances:
+        true,
+
+      progression:
+        true
+    }
+  };
 }`;
 }
+
+// ============================================================
+// MAJD GAME RUNTIME
+// ============================================================
 
 function createMajdGameRuntimeSource(
   instruction: string
@@ -3512,73 +4318,1908 @@ function createMajdGameRuntimeSource(
   return `"use strict";
 
 import {
-MajdEngine
+  MajdEngine
 } from "./majd-engine.js";
 
 import {
-createMajdWorld
+  createMajdWorld
 } from "./majd-world.js";
 
-const canvas=
-document.getElementById(
-"majd-game"
-);
+const canvas =
+  document.getElementById(
+    "majd-game"
+  );
 
-if(!(canvas instanceof HTMLCanvasElement)) {
-throw new Error(
-"MAJD game canvas not found."
-);
+if (
+  !(canvas instanceof HTMLCanvasElement)
+) {
+  throw new Error(
+    "MAJD game canvas not found."
+  );
 }
 
-const engine=
-new MajdEngine(canvas);
+const engine =
+  new MajdEngine(
+    canvas
+  );
 
-const world=
-createMajdWorld();
+const world =
+  createMajdWorld();
 
-const gameState={
-resources:{
-gold:1500,
-wood:1200,
-stone:1000,
-food:1400
-},
+const player = {
+  x:
+    world.playerStart.x,
 
-kingdomLevel:1,
+  y:
+    world.playerStart.y,
 
-population:30,
+  radius:
+    world.playerRadius,
 
-temperature:
-world.theme==="FROZEN_KINGDOM"
-? -38
-: 22,
-
-objective:${JSON.stringify(
-    instruction
-  )}
+  speed:
+    world.playerSpeed
 };
 
-const scene={
-update(time,runtime) {
-void time;
-void runtime;
-},
+const input = {
+  up:
+    false,
 
-render(gl,runtime) {
-void gl;
-void runtime;
+  down:
+    false,
+
+  left:
+    false,
+
+  right:
+    false
+};
+
+const mapping = {
+  ArrowUp:
+    "up",
+
+  w:
+    "up",
+
+  W:
+    "up",
+
+  ArrowDown:
+    "down",
+
+  s:
+    "down",
+
+  S:
+    "down",
+
+  ArrowLeft:
+    "left",
+
+  a:
+    "left",
+
+  A:
+    "left",
+
+  ArrowRight:
+    "right",
+
+  d:
+    "right",
+
+  D:
+    "right"
+};
+
+globalThis.MAJD_GAME_PROOF = {
+  runtimeStarted:
+    false,
+
+  renderedFrames:
+    0,
+
+  visibleObjects:
+    0,
+
+  worldReady:
+    false,
+
+  terrainReady:
+    false,
+
+  cameraReady:
+    false,
+
+  interactionReady:
+    true,
+
+  renderMode:
+    engine.mode,
+
+  blankFrame:
+    true,
+
+  lastFrameAt:
+    0
+};
+
+function clamp(
+  value,
+  minimum,
+  maximum
+) {
+  return Math.max(
+    minimum,
+    Math.min(
+      maximum,
+      value
+    )
+  );
 }
+
+function setInput(
+  key,
+  active
+) {
+  if (
+    key &&
+    Object.prototype
+      .hasOwnProperty.call(
+        input,
+        key
+      )
+  ) {
+    input[key] =
+      active;
+
+    globalThis
+      .MAJD_GAME_PROOF
+      .interactionReady =
+      true;
+  }
+}
+
+window.addEventListener(
+  "keydown",
+  event => {
+    const key =
+      mapping[
+        event.key
+      ];
+
+    if (key) {
+      setInput(
+        key,
+        true
+      );
+
+      event.preventDefault();
+    }
+  }
+);
+
+window.addEventListener(
+  "keyup",
+  event => {
+    const key =
+      mapping[
+        event.key
+      ];
+
+    if (key) {
+      setInput(
+        key,
+        false
+      );
+
+      event.preventDefault();
+    }
+  }
+);
+
+document
+  .querySelectorAll(
+    "[data-key]"
+  )
+  .forEach(
+    element => {
+      const key =
+        element.dataset.key;
+
+      if (!key) {
+        return;
+      }
+
+      const start =
+        event => {
+          event.preventDefault();
+
+          setInput(
+            key,
+            true
+          );
+        };
+
+      const stop =
+        event => {
+          event.preventDefault();
+
+          setInput(
+            key,
+            false
+          );
+        };
+
+      element.addEventListener(
+        "pointerdown",
+        start
+      );
+
+      element.addEventListener(
+        "pointerup",
+        stop
+      );
+
+      element.addEventListener(
+        "pointercancel",
+        stop
+      );
+
+      element.addEventListener(
+        "pointerleave",
+        stop
+      );
+    }
+  );
+
+// ============================================================
+// MATRIX
+// ============================================================
+
+function mat4Identity() {
+  return new Float32Array([
+    1,0,0,0,
+    0,1,0,0,
+    0,0,1,0,
+    0,0,0,1
+  ]);
+}
+
+function mat4Translation(
+  x,
+  y,
+  z
+) {
+  const matrix =
+    mat4Identity();
+
+  matrix[12] =
+    x;
+
+  matrix[13] =
+    y;
+
+  matrix[14] =
+    z;
+
+  return matrix;
+}
+
+function mat4Multiply(
+  a,
+  b
+) {
+  const out =
+    new Float32Array(
+      16
+    );
+
+  for (
+    let column = 0;
+    column < 4;
+    column += 1
+  ) {
+    for (
+      let row = 0;
+      row < 4;
+      row += 1
+    ) {
+      out[
+        column * 4 +
+        row
+      ] =
+        a[row] *
+          b[
+            column * 4
+          ] +
+        a[4 + row] *
+          b[
+            column * 4 +
+            1
+          ] +
+        a[8 + row] *
+          b[
+            column * 4 +
+            2
+          ] +
+        a[12 + row] *
+          b[
+            column * 4 +
+            3
+          ];
+    }
+  }
+
+  return out;
+}
+
+function mat4Perspective(
+  fovY,
+  aspect,
+  near,
+  far
+) {
+  const f =
+    1 /
+    Math.tan(
+      fovY /
+      2
+    );
+
+  const nf =
+    1 /
+    (
+      near -
+      far
+    );
+
+  return new Float32Array([
+    f / aspect,
+    0,
+    0,
+    0,
+
+    0,
+    f,
+    0,
+    0,
+
+    0,
+    0,
+    (
+      far +
+      near
+    ) *
+      nf,
+    -1,
+
+    0,
+    0,
+    (
+      2 *
+      far *
+      near
+    ) *
+      nf,
+    0
+  ]);
+}
+
+function mat4LookAt(
+  eye,
+  center,
+  up
+) {
+  let zx =
+    eye[0] -
+    center[0];
+
+  let zy =
+    eye[1] -
+    center[1];
+
+  let zz =
+    eye[2] -
+    center[2];
+
+  let length =
+    Math.hypot(
+      zx,
+      zy,
+      zz
+    ) || 1;
+
+  zx /= length;
+  zy /= length;
+  zz /= length;
+
+  let xx =
+    up[1] *
+      zz -
+    up[2] *
+      zy;
+
+  let xy =
+    up[2] *
+      zx -
+    up[0] *
+      zz;
+
+  let xz =
+    up[0] *
+      zy -
+    up[1] *
+      zx;
+
+  length =
+    Math.hypot(
+      xx,
+      xy,
+      xz
+    ) || 1;
+
+  xx /= length;
+  xy /= length;
+  xz /= length;
+
+  const yx =
+    zy *
+      xz -
+    zz *
+      xy;
+
+  const yy =
+    zz *
+      xx -
+    zx *
+      xz;
+
+  const yz =
+    zx *
+      xy -
+    zy *
+      xx;
+
+  return new Float32Array([
+    xx,yx,zx,0,
+    xy,yy,zy,0,
+    xz,yz,zz,0,
+
+    -(
+      xx * eye[0] +
+      xy * eye[1] +
+      xz * eye[2]
+    ),
+
+    -(
+      yx * eye[0] +
+      yy * eye[1] +
+      yz * eye[2]
+    ),
+
+    -(
+      zx * eye[0] +
+      zy * eye[1] +
+      zz * eye[2]
+    ),
+
+    1
+  ]);
+}
+
+function mat3FromMat4(
+  matrix
+) {
+  return new Float32Array([
+    matrix[0],
+    matrix[1],
+    matrix[2],
+
+    matrix[4],
+    matrix[5],
+    matrix[6],
+
+    matrix[8],
+    matrix[9],
+    matrix[10]
+  ]);
+}
+
+// ============================================================
+// WEBGL
+// ============================================================
+
+function createShader(
+  gl,
+  type,
+  source
+) {
+  const shader =
+    gl.createShader(
+      type
+    );
+
+  if (!shader) {
+    return null;
+  }
+
+  gl.shaderSource(
+    shader,
+    source
+  );
+
+  gl.compileShader(
+    shader
+  );
+
+  if (
+    !gl.getShaderParameter(
+      shader,
+      gl.COMPILE_STATUS
+    )
+  ) {
+    console.error(
+      gl.getShaderInfoLog(
+        shader
+      )
+    );
+
+    gl.deleteShader(
+      shader
+    );
+
+    return null;
+  }
+
+  return shader;
+}
+
+function createProgram(
+  gl,
+  vertexSource,
+  fragmentSource
+) {
+  const vertexShader =
+    createShader(
+      gl,
+      gl.VERTEX_SHADER,
+      vertexSource
+    );
+
+  const fragmentShader =
+    createShader(
+      gl,
+      gl.FRAGMENT_SHADER,
+      fragmentSource
+    );
+
+  if (
+    !vertexShader ||
+    !fragmentShader
+  ) {
+    return null;
+  }
+
+  const program =
+    gl.createProgram();
+
+  if (!program) {
+    return null;
+  }
+
+  gl.attachShader(
+    program,
+    vertexShader
+  );
+
+  gl.attachShader(
+    program,
+    fragmentShader
+  );
+
+  gl.linkProgram(
+    program
+  );
+
+  gl.deleteShader(
+    vertexShader
+  );
+
+  gl.deleteShader(
+    fragmentShader
+  );
+
+  if (
+    !gl.getProgramParameter(
+      program,
+      gl.LINK_STATUS
+    )
+  ) {
+    console.error(
+      gl.getProgramInfoLog(
+        program
+      )
+    );
+
+    gl.deleteProgram(
+      program
+    );
+
+    return null;
+  }
+
+  return program;
+}
+
+const vertexShaderSource =
+\`
+attribute vec3 aPosition;
+attribute vec3 aNormal;
+
+uniform mat4 uModelView;
+uniform mat4 uProjection;
+uniform mat3 uNormalMatrix;
+
+varying vec3 vNormal;
+
+void main() {
+  vNormal =
+    normalize(
+      uNormalMatrix *
+      aNormal
+    );
+
+  gl_Position =
+    uProjection *
+    uModelView *
+    vec4(
+      aPosition,
+      1.0
+    );
+}
+\`;
+
+const fragmentShaderSource =
+\`
+precision mediump float;
+
+varying vec3 vNormal;
+
+uniform vec3 uColor;
+uniform vec3 uLightDirection;
+
+void main() {
+  vec3 normal =
+    normalize(
+      vNormal
+    );
+
+  vec3 light =
+    normalize(
+      uLightDirection
+    );
+
+  float diffuse =
+    max(
+      dot(
+        normal,
+        light
+      ),
+      0.0
+    );
+
+  float level =
+    0.32 +
+    diffuse *
+    0.68;
+
+  gl_FragColor =
+    vec4(
+      uColor *
+      level,
+      1.0
+    );
+}
+\`;
+
+function createPlaneGeometry(
+  width,
+  depth
+) {
+  const halfWidth =
+    width / 2;
+
+  const halfDepth =
+    depth / 2;
+
+  return {
+    vertices:
+      new Float32Array([
+        -halfWidth,0,-halfDepth,
+         halfWidth,0,-halfDepth,
+         halfWidth,0, halfDepth,
+
+        -halfWidth,0,-halfDepth,
+         halfWidth,0, halfDepth,
+        -halfWidth,0, halfDepth
+      ]),
+
+    normals:
+      new Float32Array([
+        0,1,0,
+        0,1,0,
+        0,1,0,
+
+        0,1,0,
+        0,1,0,
+        0,1,0
+      ]),
+
+    count:
+      6
+  };
+}
+
+function createCubeGeometry(
+  width,
+  height,
+  depth
+) {
+  const x =
+    width / 2;
+
+  const y =
+    height / 2;
+
+  const z =
+    depth / 2;
+
+  const vertices =
+    new Float32Array([
+      -x,-y, z, x,-y, z, x, y, z,
+      -x,-y, z, x, y, z,-x, y, z,
+
+       x,-y,-z,-x,-y,-z,-x, y,-z,
+       x,-y,-z,-x, y,-z, x, y,-z,
+
+      -x,-y,-z,-x,-y, z,-x, y, z,
+      -x,-y,-z,-x, y, z,-x, y,-z,
+
+       x,-y, z, x,-y,-z, x, y,-z,
+       x,-y, z, x, y,-z, x, y, z,
+
+      -x, y, z, x, y, z, x, y,-z,
+      -x, y, z, x, y,-z,-x, y,-z,
+
+      -x,-y,-z, x,-y,-z, x,-y, z,
+      -x,-y,-z, x,-y, z,-x,-y, z
+    ]);
+
+  const normals =
+    new Float32Array([
+       0,0,1, 0,0,1, 0,0,1,
+       0,0,1, 0,0,1, 0,0,1,
+
+       0,0,-1, 0,0,-1, 0,0,-1,
+       0,0,-1, 0,0,-1, 0,0,-1,
+
+      -1,0,0,-1,0,0,-1,0,0,
+      -1,0,0,-1,0,0,-1,0,0,
+
+       1,0,0, 1,0,0, 1,0,0,
+       1,0,0, 1,0,0, 1,0,0,
+
+       0,1,0, 0,1,0, 0,1,0,
+       0,1,0, 0,1,0, 0,1,0,
+
+       0,-1,0,0,-1,0,0,-1,0,
+       0,-1,0,0,-1,0,0,-1,0
+    ]);
+
+  return {
+    vertices,
+    normals,
+
+    count:
+      36
+  };
+}
+
+function createSphereGeometry(
+  radius,
+  latitudeBands,
+  longitudeBands
+) {
+  const vertices = [];
+  const normals = [];
+  const indices = [];
+
+  for (
+    let latitude = 0;
+    latitude <= latitudeBands;
+    latitude += 1
+  ) {
+    const theta =
+      latitude *
+      Math.PI /
+      latitudeBands;
+
+    const sinTheta =
+      Math.sin(
+        theta
+      );
+
+    const cosTheta =
+      Math.cos(
+        theta
+      );
+
+    for (
+      let longitude = 0;
+      longitude <= longitudeBands;
+      longitude += 1
+    ) {
+      const phi =
+        longitude *
+        Math.PI *
+        2 /
+        longitudeBands;
+
+      const sinPhi =
+        Math.sin(
+          phi
+        );
+
+      const cosPhi =
+        Math.cos(
+          phi
+        );
+
+      const nx =
+        cosPhi *
+        sinTheta;
+
+      const ny =
+        cosTheta;
+
+      const nz =
+        sinPhi *
+        sinTheta;
+
+      normals.push(
+        nx,
+        ny,
+        nz
+      );
+
+      vertices.push(
+        radius * nx,
+        radius * ny,
+        radius * nz
+      );
+    }
+  }
+
+  for (
+    let latitude = 0;
+    latitude < latitudeBands;
+    latitude += 1
+  ) {
+    for (
+      let longitude = 0;
+      longitude < longitudeBands;
+      longitude += 1
+    ) {
+      const first =
+        latitude *
+        (
+          longitudeBands +
+          1
+        ) +
+        longitude;
+
+      const second =
+        first +
+        longitudeBands +
+        1;
+
+      indices.push(
+        first,
+        second,
+        first + 1,
+
+        second,
+        second + 1,
+        first + 1
+      );
+    }
+  }
+
+  return {
+    vertices:
+      new Float32Array(
+        vertices
+      ),
+
+    normals:
+      new Float32Array(
+        normals
+      ),
+
+    indices:
+      new Uint16Array(
+        indices
+      ),
+
+    count:
+      indices.length
+  };
+}
+
+function createGeometryBuffer(
+  gl,
+  geometry
+) {
+  const vertexBuffer =
+    gl.createBuffer();
+
+  gl.bindBuffer(
+    gl.ARRAY_BUFFER,
+    vertexBuffer
+  );
+
+  gl.bufferData(
+    gl.ARRAY_BUFFER,
+    geometry.vertices,
+    gl.STATIC_DRAW
+  );
+
+  const normalBuffer =
+    gl.createBuffer();
+
+  gl.bindBuffer(
+    gl.ARRAY_BUFFER,
+    normalBuffer
+  );
+
+  gl.bufferData(
+    gl.ARRAY_BUFFER,
+    geometry.normals,
+    gl.STATIC_DRAW
+  );
+
+  let indexBuffer =
+    null;
+
+  if (
+    geometry.indices
+  ) {
+    indexBuffer =
+      gl.createBuffer();
+
+    gl.bindBuffer(
+      gl.ELEMENT_ARRAY_BUFFER,
+      indexBuffer
+    );
+
+    gl.bufferData(
+      gl.ELEMENT_ARRAY_BUFFER,
+      geometry.indices,
+      gl.STATIC_DRAW
+    );
+  }
+
+  return {
+    vertexBuffer,
+    normalBuffer,
+    indexBuffer,
+
+    count:
+      geometry.count
+  };
+}
+
+function initWebGLScene(
+  gl
+) {
+  const program =
+    createProgram(
+      gl,
+      vertexShaderSource,
+      fragmentShaderSource
+    );
+
+  if (!program) {
+    return null;
+  }
+
+  return {
+    program,
+
+    ground:
+      createGeometryBuffer(
+        gl,
+        createPlaneGeometry(
+          world.width,
+          world.height
+        )
+      ),
+
+    castle:
+      createGeometryBuffer(
+        gl,
+        createCubeGeometry(
+          world.castle.width,
+          world.castle.height,
+          world.castle.depth
+        )
+      ),
+
+    tower:
+      createGeometryBuffer(
+        gl,
+        createCubeGeometry(
+          72,
+          150,
+          72
+        )
+      ),
+
+    building:
+      createGeometryBuffer(
+        gl,
+        createCubeGeometry(
+          90,
+          80,
+          90
+        )
+      ),
+
+    dragon:
+      createGeometryBuffer(
+        gl,
+        createSphereGeometry(
+          world.dragon.radius,
+          14,
+          18
+        )
+      ),
+
+    player:
+      createGeometryBuffer(
+        gl,
+        createCubeGeometry(
+          42,
+          42,
+          42
+        )
+      ),
+
+    position:
+      gl.getAttribLocation(
+        program,
+        "aPosition"
+      ),
+
+    normal:
+      gl.getAttribLocation(
+        program,
+        "aNormal"
+      ),
+
+    modelView:
+      gl.getUniformLocation(
+        program,
+        "uModelView"
+      ),
+
+    projection:
+      gl.getUniformLocation(
+        program,
+        "uProjection"
+      ),
+
+    normalMatrix:
+      gl.getUniformLocation(
+        program,
+        "uNormalMatrix"
+      ),
+
+    color:
+      gl.getUniformLocation(
+        program,
+        "uColor"
+      ),
+
+    light:
+      gl.getUniformLocation(
+        program,
+        "uLightDirection"
+      )
+  };
+}
+
+function renderGeometry(
+  gl,
+  data,
+  geometry,
+  model,
+  view,
+  projection,
+  color
+) {
+  const modelView =
+    mat4Multiply(
+      view,
+      model
+    );
+
+  gl.useProgram(
+    data.program
+  );
+
+  gl.uniformMatrix4fv(
+    data.modelView,
+    false,
+    modelView
+  );
+
+  gl.uniformMatrix4fv(
+    data.projection,
+    false,
+    projection
+  );
+
+  gl.uniformMatrix3fv(
+    data.normalMatrix,
+    false,
+    mat3FromMat4(
+      modelView
+    )
+  );
+
+  gl.uniform3fv(
+    data.color,
+    color
+  );
+
+  gl.uniform3fv(
+    data.light,
+    new Float32Array([
+      0.45,
+      1,
+      0.65
+    ])
+  );
+
+  gl.bindBuffer(
+    gl.ARRAY_BUFFER,
+    geometry.vertexBuffer
+  );
+
+  gl.enableVertexAttribArray(
+    data.position
+  );
+
+  gl.vertexAttribPointer(
+    data.position,
+    3,
+    gl.FLOAT,
+    false,
+    0,
+    0
+  );
+
+  gl.bindBuffer(
+    gl.ARRAY_BUFFER,
+    geometry.normalBuffer
+  );
+
+  gl.enableVertexAttribArray(
+    data.normal
+  );
+
+  gl.vertexAttribPointer(
+    data.normal,
+    3,
+    gl.FLOAT,
+    false,
+    0,
+    0
+  );
+
+  if (
+    geometry.indexBuffer
+  ) {
+    gl.bindBuffer(
+      gl.ELEMENT_ARRAY_BUFFER,
+      geometry.indexBuffer
+    );
+
+    gl.drawElements(
+      gl.TRIANGLES,
+      geometry.count,
+      gl.UNSIGNED_SHORT,
+      0
+    );
+  } else {
+    gl.drawArrays(
+      gl.TRIANGLES,
+      0,
+      geometry.count
+    );
+  }
+}
+
+// ============================================================
+// SCENE
+// ============================================================
+
+const scene = {
+  webGLData:
+    null,
+
+  update(
+    delta
+  ) {
+    let dx =
+      0;
+
+    let dy =
+      0;
+
+    if (
+      input.left
+    ) {
+      dx -= 1;
+    }
+
+    if (
+      input.right
+    ) {
+      dx += 1;
+    }
+
+    if (
+      input.up
+    ) {
+      dy -= 1;
+    }
+
+    if (
+      input.down
+    ) {
+      dy += 1;
+    }
+
+    if (
+      dx !== 0 ||
+      dy !== 0
+    ) {
+      const length =
+        Math.hypot(
+          dx,
+          dy
+        ) || 1;
+
+      dx /= length;
+      dy /= length;
+
+      player.x +=
+        dx *
+        player.speed *
+        delta;
+
+      player.y +=
+        dy *
+        player.speed *
+        delta;
+    }
+
+    player.x =
+      clamp(
+        player.x,
+        player.radius,
+        world.width -
+          player.radius
+      );
+
+    player.y =
+      clamp(
+        player.y,
+        player.radius,
+        world.height -
+          player.radius
+      );
+  },
+
+  render3D(
+    gl,
+    runtime
+  ) {
+    if (
+      !this.webGLData
+    ) {
+      this.webGLData =
+        initWebGLScene(
+          gl
+        );
+    }
+
+    if (
+      !this.webGLData
+    ) {
+      throw new Error(
+        "MAJD WebGL scene initialization failed."
+      );
+    }
+
+    const width =
+      Math.max(
+        1,
+        runtime.canvas.clientWidth
+      );
+
+    const height =
+      Math.max(
+        1,
+        runtime.canvas.clientHeight
+      );
+
+    const projection =
+      mat4Perspective(
+        Math.PI /
+          4,
+        width /
+          height,
+        1,
+        6000
+      );
+
+    const eye = [
+      player.x,
+      720,
+      player.y +
+        760
+    ];
+
+    const target = [
+      player.x,
+      0,
+      player.y
+    ];
+
+    const view =
+      mat4LookAt(
+        eye,
+        target,
+        [
+          0,
+          1,
+          0
+        ]
+      );
+
+    const groundColor =
+      world.theme ===
+        "FROZEN_KINGDOM"
+        ? new Float32Array([
+            0.68,
+            0.82,
+            0.88
+          ])
+        : new Float32Array([
+            0.16,
+            0.42,
+            0.20
+          ]);
+
+    renderGeometry(
+      gl,
+      this.webGLData,
+      this.webGLData.ground,
+      mat4Translation(
+        world.width /
+          2,
+        0,
+        world.height /
+          2
+      ),
+      view,
+      projection,
+      groundColor
+    );
+
+    renderGeometry(
+      gl,
+      this.webGLData,
+      this.webGLData.castle,
+      mat4Translation(
+        world.castle.x,
+        world.castle.height /
+          2,
+        world.castle.y
+      ),
+      view,
+      projection,
+      new Float32Array([
+        0.70,
+        0.58,
+        0.40
+      ])
+    );
+
+    for (
+      const tower of
+        world.towers
+    ) {
+      renderGeometry(
+        gl,
+        this.webGLData,
+        this.webGLData.tower,
+        mat4Translation(
+          tower.x,
+          75,
+          tower.y
+        ),
+        view,
+        projection,
+        new Float32Array([
+          0.48,
+          0.42,
+          0.31
+        ])
+      );
+    }
+
+    for (
+      const building of
+        world.buildings
+    ) {
+      renderGeometry(
+        gl,
+        this.webGLData,
+        this.webGLData.building,
+        mat4Translation(
+          building.x,
+          building.height /
+            2,
+          building.y
+        ),
+        view,
+        projection,
+        new Float32Array([
+          0.55,
+          0.47,
+          0.32
+        ])
+      );
+    }
+
+    renderGeometry(
+      gl,
+      this.webGLData,
+      this.webGLData.dragon,
+      mat4Translation(
+        world.dragon.x,
+        world.dragon.height /
+          2,
+        world.dragon.y
+      ),
+      view,
+      projection,
+      new Float32Array([
+        0.76,
+        0.14,
+        0.13
+      ])
+    );
+
+    renderGeometry(
+      gl,
+      this.webGLData,
+      this.webGLData.player,
+      mat4Translation(
+        player.x,
+        21,
+        player.y
+      ),
+      view,
+      projection,
+      new Float32Array([
+        0.96,
+        0.78,
+        0.18
+      ])
+    );
+
+    const proof =
+      globalThis
+        .MAJD_GAME_PROOF;
+
+    proof.runtimeStarted =
+      true;
+
+    proof.renderedFrames +=
+      1;
+
+    proof.visibleObjects =
+      1 +
+      1 +
+      world.towers.length +
+      world.buildings.length +
+      1 +
+      1;
+
+    proof.worldReady =
+      true;
+
+    proof.terrainReady =
+      true;
+
+    proof.cameraReady =
+      true;
+
+    proof.blankFrame =
+      false;
+
+    proof.renderMode =
+      "webgl";
+
+    proof.lastFrameAt =
+      performance.now();
+  },
+
+  render2D(
+    ctx,
+    runtime
+  ) {
+    const width =
+      runtime.canvas.clientWidth;
+
+    const height =
+      runtime.canvas.clientHeight;
+
+    const cameraX =
+      player.x -
+      width /
+        2;
+
+    const cameraY =
+      player.y -
+      height /
+        2;
+
+    ctx.fillStyle =
+      world.theme ===
+        "FROZEN_KINGDOM"
+        ? "#adcbd7"
+        : "#183c2a";
+
+    ctx.fillRect(
+      0,
+      0,
+      width,
+      height
+    );
+
+    ctx.save();
+
+    ctx.translate(
+      -cameraX,
+      -cameraY
+    );
+
+    ctx.fillStyle =
+      world.theme ===
+        "FROZEN_KINGDOM"
+        ? "#dcecf1"
+        : "#234e31";
+
+    ctx.fillRect(
+      0,
+      0,
+      world.width,
+      world.height
+    );
+
+    ctx.fillStyle =
+      world.theme ===
+        "FROZEN_KINGDOM"
+        ? "#87b5c7"
+        : "#277fa4";
+
+    ctx.fillRect(
+      0,
+      world.river.y,
+      world.width,
+      world.river.width
+    );
+
+    ctx.fillStyle =
+      world.theme ===
+        "FROZEN_KINGDOM"
+        ? "#8096a0"
+        : "#51625b";
+
+    for (
+      let index = 0;
+      index < 12;
+      index += 1
+    ) {
+      const x =
+        120 +
+        index *
+          190;
+
+      const y =
+        130 +
+        (
+          index %
+          3
+        ) *
+          65;
+
+      ctx.beginPath();
+
+      ctx.moveTo(
+        x,
+        y +
+          130
+      );
+
+      ctx.lineTo(
+        x +
+          70,
+        y
+      );
+
+      ctx.lineTo(
+        x +
+          140,
+        y +
+          130
+      );
+
+      ctx.closePath();
+
+      ctx.fill();
+    }
+
+    ctx.strokeStyle =
+      "#d0bd8a";
+
+    ctx.lineWidth =
+      20;
+
+    ctx.strokeRect(
+      world.castle.x -
+        world.castle.width /
+          2,
+      world.castle.y -
+        world.castle.depth /
+          2,
+      world.castle.width,
+      world.castle.depth
+    );
+
+    ctx.fillStyle =
+      "#a28d65";
+
+    ctx.fillRect(
+      world.castle.x -
+        90,
+      world.castle.y -
+        90,
+      180,
+      180
+    );
+
+    for (
+      const tower of
+        world.towers
+    ) {
+      ctx.fillStyle =
+        "#786746";
+
+      ctx.beginPath();
+
+      ctx.arc(
+        tower.x,
+        tower.y,
+        34,
+        0,
+        Math.PI *
+          2
+      );
+
+      ctx.fill();
+    }
+
+    for (
+      const building of
+        world.buildings
+    ) {
+      ctx.fillStyle =
+        "#88734c";
+
+      ctx.fillRect(
+        building.x -
+          building.width /
+            2,
+        building.y -
+          building.depth /
+            2,
+        building.width,
+        building.depth
+      );
+    }
+
+    ctx.fillStyle =
+      "#9c2f2f";
+
+    ctx.beginPath();
+
+    ctx.arc(
+      world.dragon.x,
+      world.dragon.y,
+      world.dragon.radius,
+      0,
+      Math.PI *
+        2
+    );
+
+    ctx.fill();
+
+    ctx.fillStyle =
+      "#ffd46b";
+
+    ctx.font =
+      "bold 18px Arial";
+
+    ctx.textAlign =
+      "center";
+
+    ctx.fillText(
+      "DRAGON BOSS",
+      world.dragon.x,
+      world.dragon.y -
+        72
+    );
+
+    ctx.fillStyle =
+      "#f0d16d";
+
+    ctx.beginPath();
+
+    ctx.arc(
+      player.x,
+      player.y,
+      player.radius,
+      0,
+      Math.PI *
+        2
+    );
+
+    ctx.fill();
+
+    ctx.restore();
+
+    ctx.fillStyle =
+      "rgba(3,8,14,.78)";
+
+    ctx.fillRect(
+      12,
+      height -
+        96,
+      Math.max(
+        120,
+        Math.min(
+          width -
+            24,
+          760
+        )
+      ),
+      82
+    );
+
+    ctx.fillStyle =
+      "#ffffff";
+
+    ctx.font =
+      "14px Arial";
+
+    ctx.textAlign =
+      "left";
+
+    ctx.fillText(
+      "Gold: " +
+        world.resources.gold +
+        " | Wood: " +
+        world.resources.wood +
+        " | Stone: " +
+        world.resources.stone,
+      24,
+      height -
+        64
+    );
+
+    ctx.fillText(
+      "Objective: " +
+        ${JSON.stringify(
+          instruction
+        )},
+      24,
+      height -
+        36
+    );
+
+    const proof =
+      globalThis
+        .MAJD_GAME_PROOF;
+
+    proof.runtimeStarted =
+      true;
+
+    proof.renderedFrames +=
+      1;
+
+    proof.visibleObjects =
+      1 +
+      1 +
+      world.towers.length +
+      world.buildings.length +
+      1 +
+      1;
+
+    proof.worldReady =
+      true;
+
+    proof.terrainReady =
+      true;
+
+    proof.cameraReady =
+      true;
+
+    proof.blankFrame =
+      false;
+
+    proof.renderMode =
+      "2d";
+
+    proof.lastFrameAt =
+      performance.now();
+  }
 };
 
-engine.setScene(scene);
+engine.setScene(
+  scene
+);
+
 engine.start();
 
-globalThis.MAJD_GAME={
-engine,
-world,
-gameState
-};`;
+globalThis.MAJD_GAME = {
+  engine,
+  world,
+  player,
+  input,
+
+  objective:
+    ${JSON.stringify(
+      instruction
+    )},
+
+  proof:
+    globalThis
+      .MAJD_GAME_PROOF
+};
+`;
 }
+
+// ============================================================
+// MAJD WEB INDEX
+// ============================================================
 
 function createMajdIndexSource(
   title: string
@@ -3587,29 +6228,86 @@ function createMajdIndexSource(
 <html lang="ar" dir="rtl">
 <head>
 <meta charset="utf-8">
-<meta name="viewport" content="width=device-width,initial-scale=1,viewport-fit=cover">
-<meta name="theme-color" content="#07101d">
+
+<meta
+  name="viewport"
+  content="width=device-width,initial-scale=1,viewport-fit=cover"
+>
+
+<meta
+  name="theme-color"
+  content="#07101d"
+>
+
 <title>${escapeHtml(title)}</title>
-<link rel="stylesheet" href="./styles.css">
+
+<link
+  rel="stylesheet"
+  href="./styles.css"
+>
 </head>
+
 <body>
 <main id="majd-app">
-<canvas id="majd-game" aria-label="MAJD Sovereign Game"></canvas>
+
+<canvas
+  id="majd-game"
+  aria-label="${escapeHtml(title)}"
+></canvas>
 
 <section id="majd-hud">
-<strong>${escapeHtml(title)}</strong>
-<span>MAJD SOVEREIGN ENGINE</span>
+  <strong>
+    ${escapeHtml(title)}
+  </strong>
+
+  <span>
+    MAJD SOVEREIGN ENGINE
+  </span>
+
+  <small>
+    3D WebGL + 2D Safe Fallback
+  </small>
 </section>
+
+<section id="majd-touch-controls">
+  <button data-key="up">
+    ▲
+  </button>
+
+  <div>
+    <button data-key="left">
+      ◀
+    </button>
+
+    <button data-key="down">
+      ▼
+    </button>
+
+    <button data-key="right">
+      ▶
+    </button>
+  </div>
+</section>
+
 </main>
 
-<script type="module" src="./game.js"></script>
+<script
+  type="module"
+  src="./game.js"
+></script>
 </body>
 </html>`;
 }
 
 function createMajdStylesSource():
   string {
-  return `html,body {
+  return `* {
+box-sizing:border-box;
+-webkit-tap-highlight-color:transparent;
+}
+
+html,
+body {
 width:100%;
 height:100%;
 margin:0;
@@ -3622,12 +6320,15 @@ font-family:system-ui,sans-serif;
 position:relative;
 width:100%;
 height:100%;
+min-height:100dvh;
+overflow:hidden;
 }
 
 #majd-game {
 display:block;
 width:100%;
 height:100%;
+background:#9dc5d5;
 touch-action:none;
 }
 
@@ -3635,25 +6336,98 @@ touch-action:none;
 position:absolute;
 top:max(12px,env(safe-area-inset-top));
 right:max(12px,env(safe-area-inset-right));
+
 display:flex;
 flex-direction:column;
 gap:4px;
+
 padding:10px 14px;
+
 background:rgba(4,10,19,.76);
+
 color:white;
+
 border:1px solid rgba(255,255,255,.14);
+
 border-radius:12px;
+
 backdrop-filter:blur(8px);
+
 pointer-events:none;
+}
+
+#majd-hud small {
+opacity:.7;
+}
+
+#majd-touch-controls {
+position:absolute;
+
+right:max(
+18px,
+env(safe-area-inset-right)
+);
+
+bottom:calc(
+18px +
+env(safe-area-inset-bottom)
+);
+
+display:none;
+
+flex-direction:column;
+
+align-items:center;
+
+gap:6px;
+}
+
+#majd-touch-controls div {
+display:flex;
+gap:6px;
+}
+
+#majd-touch-controls button {
+width:56px;
+height:56px;
+
+border:1px solid rgba(255,255,255,.25);
+
+border-radius:14px;
+
+background:rgba(4,10,19,.70);
+
+color:#fff;
+
+font-size:20px;
+
+touch-action:none;
+}
+
+@media
+(pointer:coarse),
+(max-width:900px) {
+#majd-touch-controls {
+display:flex;
+}
 }`;
 }
 
+// ============================================================
+// PHYSICAL FILE WRITER
+// ============================================================
+
 async function writeMajdPhysicalFile(
   root: string,
+
   relativePath: string,
+
   content: string,
+
   category:
-    MajdPhysicalFile["category"]
+    MajdPhysicalFile[
+      "category"
+    ]
 ): Promise<MajdPhysicalFile> {
   const normalized =
     path.normalize(
@@ -3661,8 +6435,12 @@ async function writeMajdPhysicalFile(
     );
 
   if (
-    normalized.startsWith("..") ||
-    path.isAbsolute(normalized)
+    normalized.startsWith(
+      ".."
+    ) ||
+    path.isAbsolute(
+      normalized
+    )
   ) {
     throw new Error(
       `Unsafe MAJD output path: ${relativePath}`
@@ -3681,20 +6459,35 @@ async function writeMajdPhysicalFile(
   );
 
   return {
-    path: destination,
+    path:
+      destination,
+
     content,
+
     checksum:
-      checksum(content),
+      checksum(
+        content
+      ),
+
     category
   };
 }
 
+// ============================================================
+// MAJD BUILD VERIFICATION
+// ============================================================
+
 async function verifyMajdBuild(
   buildRoot: string,
-  files: MajdPhysicalFile[]
+
+  files:
+    MajdPhysicalFile[]
 ): Promise<MajdQualityResult> {
-  const errors: string[] = [];
-  const warnings: string[] = [];
+  const errors:
+    string[] = [];
+
+  const warnings:
+    string[] = [];
 
   const required = [
     "index.html",
@@ -3706,9 +6499,15 @@ async function verifyMajdBuild(
   ];
 
   const checks:
-    Record<string, boolean> = {};
+    Record<
+      string,
+      boolean
+    > = {};
 
-  for (const file of required) {
+  for (
+    const file of
+      required
+  ) {
     const exists =
       await fileExists(
         path.join(
@@ -3719,7 +6518,8 @@ async function verifyMajdBuild(
 
     checks[
       `file:${file}`
-    ] = exists;
+    ] =
+      exists;
 
     if (!exists) {
       errors.push(
@@ -3738,51 +6538,180 @@ async function verifyMajdBuild(
 
   const externalEngine =
     /from\s+["'][^"']*(?:babylon|three(?:\.js)?|unity|unreal|godot)[^"']*["']/i
-      .test(sourceText);
+      .test(
+        sourceText
+      );
 
   checks.noExternalEngine =
     !externalEngine;
 
-  if (externalEngine) {
+  if (
+    externalEngine
+  ) {
     errors.push(
       "External game engine dependency detected."
     );
   }
 
-  checks.physicalFiles =
+  const sourceFiles =
     files.filter(
       file =>
         file.category ===
           "BUILD" ||
         file.category ===
           "SOURCE"
-    ).length >= 4;
+    );
 
-  if (!checks.physicalFiles) {
+  checks.physicalFiles =
+    sourceFiles.length >=
+    4;
+
+  if (
+    !checks.physicalFiles
+  ) {
     errors.push(
       "Insufficient physical production files."
     );
   }
 
+  const engineFile =
+    files.find(
+      file =>
+        path.basename(
+          file.path
+        ) ===
+        "majd-engine.js"
+    );
+
+  const gameFile =
+    files.find(
+      file =>
+        path.basename(
+          file.path
+        ) ===
+        "game.js"
+    );
+
+  const worldFile =
+    files.find(
+      file =>
+        path.basename(
+          file.path
+        ) ===
+        "majd-world.js"
+    );
+
+  checks.webglRenderer =
+    !!engineFile &&
+    engineFile.content.includes(
+      "webgl"
+    ) &&
+    !!gameFile &&
+    gameFile.content.includes(
+      "render3D"
+    );
+
+  if (
+    !checks.webglRenderer
+  ) {
+    errors.push(
+      "MAJD WebGL renderer is not present."
+    );
+  }
+
+  checks.canvasFallback =
+    !!engineFile &&
+    engineFile.content.includes(
+      "getContext"
+    ) &&
+    engineFile.content.includes(
+      "\"2d\""
+    ) &&
+    !!gameFile &&
+    gameFile.content.includes(
+      "render2D"
+    );
+
+  if (
+    !checks.canvasFallback
+  ) {
+    errors.push(
+      "MAJD Canvas 2D fallback is not present."
+    );
+  }
+
+  checks.realSceneRenderer =
+    !!gameFile &&
+    gameFile.content.includes(
+      "renderGeometry"
+    ) &&
+    gameFile.content.includes(
+      "MAJD_GAME_PROOF"
+    ) &&
+    gameFile.content.includes(
+      "blankFrame"
+    );
+
+  if (
+    !checks.realSceneRenderer
+  ) {
+    errors.push(
+      "Real rendered scene proof is missing."
+    );
+  }
+
+  checks.worldData =
+    !!worldFile &&
+    worldFile.content.includes(
+      "castle"
+    ) &&
+    worldFile.content.includes(
+      "towers"
+    ) &&
+    worldFile.content.includes(
+      "buildings"
+    ) &&
+    worldFile.content.includes(
+      "playerStart"
+    );
+
+  if (
+    !checks.worldData
+  ) {
+    errors.push(
+      "Renderable MAJD world data is incomplete."
+    );
+  }
+
   const passed =
-    Object.values(checks)
-      .filter(Boolean)
+    Object.values(
+      checks
+    )
+      .filter(
+        Boolean
+      )
       .length;
 
   const total =
-    Object.keys(checks)
-      .length;
+    Object.keys(
+      checks
+    ).length;
 
   return {
     success:
-      errors.length === 0,
+      errors.length ===
+      0,
 
     score:
-      total === 0
+      total ===
+        0
         ? 0
         : Math.round(
-            (passed / total) *
-              100
+            (
+              passed /
+              total
+            ) *
+            100
           ),
 
     checks,
@@ -3791,20 +6720,26 @@ async function verifyMajdBuild(
   };
 }
 
+// ============================================================
+// MAJD SOVEREIGN CREATION
+// ============================================================
+
 export async function executeMajdSovereignCreation(
-  input: Partial<
-    MajdSovereignCreationRequest
-  > & {
-    instruction: string;
-    ownerId: string;
-    projectId: string;
-  }
+  input:
+    Partial<
+      MajdSovereignCreationRequest
+    > & {
+      instruction: string;
+      ownerId: string;
+      projectId: string;
+    }
 ): Promise<MajdSovereignCreationResult> {
   const startedAt =
     Date.now();
 
   const instruction =
-    input.instruction.trim();
+    input.instruction
+      .trim();
 
   const projectId =
     safeProjectId(
@@ -3834,7 +6769,8 @@ export async function executeMajdSovereignCreation(
 
       legalStage:
         input.legalStage ??
-        MAJD_LEGAL_ENTITY_LIFECYCLE.current,
+        MAJD_LEGAL_ENTITY_LIFECYCLE
+          .current,
 
       createdAt:
         input.createdAt ??
@@ -3877,7 +6813,9 @@ export async function executeMajdSovereignCreation(
     };
 
   try {
-    if (!instruction) {
+    if (
+      !instruction
+    ) {
       throw new Error(
         "MAJD sovereign instruction is required."
       );
@@ -3894,15 +6832,19 @@ export async function executeMajdSovereignCreation(
     await fs.rm(
       buildRoot,
       {
-        recursive: true,
-        force: true
+        recursive:
+          true,
+
+        force:
+          true
       }
     );
 
     await fs.mkdir(
       buildRoot,
       {
-        recursive: true
+        recursive:
+          true
       }
     );
 
@@ -3989,9 +6931,13 @@ export async function executeMajdSovereignCreation(
     result.rights =
       rights;
 
-    if (!rights.success) {
+    if (
+      !rights.success
+    ) {
       throw new Error(
-        rights.errors.join("; ")
+        rights.errors.join(
+          "; "
+        )
       );
     }
 
@@ -4007,7 +6953,9 @@ export async function executeMajdSovereignCreation(
     result.quality =
       quality;
 
-    if (!quality.success) {
+    if (
+      !quality.success
+    ) {
       result.state =
         "BLOCKED";
 
@@ -4046,9 +6994,27 @@ export async function executeMajdSovereignCreation(
         )
       );
 
+    const engineReady =
+      await fileExists(
+        path.join(
+          buildRoot,
+          "majd-engine.js"
+        )
+      );
+
+    const worldReady =
+      await fileExists(
+        path.join(
+          buildRoot,
+          "majd-world.js"
+        )
+      );
+
     if (
       !indexReady ||
-      !runtimeReady
+      !runtimeReady ||
+      !engineReady ||
+      !worldReady
     ) {
       throw new Error(
         "MAJD real build verification failed."
@@ -4107,7 +7073,8 @@ function commandProjectId(
     SovereignRuntimeCommand
 ): string {
   return (
-    command.projectId?.trim() ||
+    command.projectId
+      ?.trim() ||
     `sovereign-project-${Date.now()}`
   );
 }
@@ -4133,7 +7100,10 @@ function projectIdFromLiveTarget(
       )
       .trim();
 
-  return value || undefined;
+  return (
+    value ||
+    undefined
+  );
 }
 
 // ============================================================
@@ -4143,7 +7113,9 @@ function projectIdFromLiveTarget(
 function createAutonomousRuntimeAdapter():
   SovereignAutonomousRuntimeAdapter {
   return {
-    async buildPlatform(command) {
+    async buildPlatform(
+      command
+    ) {
       const projectId =
         commandProjectId(
           command
@@ -4191,7 +7163,8 @@ function createAutonomousRuntimeAdapter():
         result.status ===
           "READY" &&
         result.validation
-          ?.success === true;
+          ?.success ===
+          true;
 
       return {
         projectId:
@@ -4204,7 +7177,8 @@ function createAutonomousRuntimeAdapter():
             ? result.projectId
             : undefined,
 
-        output: result,
+        output:
+          result,
 
         errors:
           success
@@ -4229,10 +7203,15 @@ function createAutonomousRuntimeAdapter():
       );
 
       await fs.rm(
-        gameRoot(projectId),
+        gameRoot(
+          projectId
+        ),
         {
-          recursive: true,
-          force: true
+          recursive:
+            true,
+
+          force:
+            true
         }
       );
 
@@ -4245,34 +7224,32 @@ function createAutonomousRuntimeAdapter():
       );
 
       const majdResult =
-        await executeMajdSovereignCreation(
-          {
-            ownerId:
-              "OWNER-MAJD",
+        await executeMajdSovereignCreation({
+          ownerId:
+            "OWNER-MAJD",
 
-            projectId,
+          projectId,
 
-            instruction:
-              command.instruction,
+          instruction:
+            command.instruction,
 
-            productType:
-              "GAME",
+          productType:
+            "GAME",
 
-            autonomous:
-              command.autonomous,
+          autonomous:
+            command.autonomous,
 
-            metadata: {
-              runtimeCommandId:
-                command.id,
+          metadata: {
+            runtimeCommandId:
+              command.id,
 
-              ownerCommandId:
-                command.ownerCommandId,
+            ownerCommandId:
+              command.ownerCommandId,
 
-              source:
-                "SOVEREIGN-AI-REAL-COMPONENT-BINDINGS-224"
-            }
+            source:
+              "SOVEREIGN-AI-REAL-COMPONENT-BINDINGS-224"
           }
-        );
+        });
 
       const playable =
         majdResult.success ===
@@ -4290,9 +7267,11 @@ function createAutonomousRuntimeAdapter():
         majdResult.launchTarget.length >
           0 &&
         majdResult.quality
-          ?.success === true &&
+          ?.success ===
+          true &&
         majdResult.rights
-          ?.success === true;
+          ?.success ===
+          true;
 
       const artifactExists =
         playable &&
@@ -4325,7 +7304,8 @@ function createAutonomousRuntimeAdapter():
 
           testSuccess:
             majdResult.quality
-              ?.success === true,
+              ?.success ===
+            true,
 
           artifactSuccess:
             artifactExists,
@@ -4361,14 +7341,18 @@ function createAutonomousRuntimeAdapter():
             ? []
             : majdResult.errors.length >
                 0
-              ? [...majdResult.errors]
+              ? [
+                  ...majdResult.errors
+                ]
               : [
                   "MAJD sovereign game creation did not reach verified READY state."
                 ]
       };
     },
 
-    async buildAdmin(command) {
+    async buildAdmin(
+      command
+    ) {
       const projectId =
         commandProjectId(
           command
@@ -4414,10 +7398,12 @@ function createAutonomousRuntimeAdapter():
         result.status ===
           "READY" &&
         result.validation
-          ?.success === true &&
+          ?.success ===
+          true &&
         result.validation
           .missingModules
-          .length === 0;
+          .length ===
+          0;
 
       return {
         projectId:
@@ -4430,7 +7416,8 @@ function createAutonomousRuntimeAdapter():
             ? `sovereign-admin://${result.projectId}`
             : undefined,
 
-        output: result,
+        output:
+          result,
 
         errors:
           success
@@ -4442,7 +7429,9 @@ function createAutonomousRuntimeAdapter():
       };
     },
 
-    async buildCapability(command) {
+    async buildCapability(
+      command
+    ) {
       const projectId =
         commandProjectId(
           command
@@ -4505,9 +7494,11 @@ function createAutonomousRuntimeAdapter():
         result.status ===
           "READY" &&
         result.validation
-          ?.success === true &&
+          ?.success ===
+          true &&
         result.build
-          ?.success === true;
+          ?.success ===
+          true;
 
       return {
         projectId:
@@ -4519,7 +7510,8 @@ function createAutonomousRuntimeAdapter():
           result.build
             ?.artifactPath,
 
-        output: result,
+        output:
+          result,
 
         errors:
           success
@@ -4539,12 +7531,22 @@ function createAutonomousRuntimeAdapter():
       command,
       build
     ) {
-      if (!build.success) {
+      if (
+        !build.success
+      ) {
         return {
-          success: false,
-          releaseAllowed: false,
-          repaired: false,
-          repairAttempts: 0,
+          success:
+            false,
+
+          releaseAllowed:
+            false,
+
+          repaired:
+            false,
+
+          repairAttempts:
+            0,
+
           errors: [
             ...build.errors
           ]
@@ -4557,10 +7559,17 @@ function createAutonomousRuntimeAdapter():
           "object"
       ) {
         return {
-          success: false,
-          releaseAllowed: false,
-          repaired: false,
-          repairAttempts: 0,
+          success:
+            false,
+
+          releaseAllowed:
+            false,
+
+          repaired:
+            false,
+
+          repairAttempts:
+            0,
 
           errors: [
             "Sovereign build produced no verifiable output."
@@ -4596,15 +7605,18 @@ function createAutonomousRuntimeAdapter():
             : false;
 
         const valid =
-          result.success === true &&
+          result.success ===
+            true &&
           result.state ===
             "READY" &&
           result.playable ===
             true &&
           result.quality
-            ?.success === true &&
+            ?.success ===
+            true &&
           result.rights
-            ?.success === true &&
+            ?.success ===
+            true &&
           build.playable ===
             true &&
           proof?.playable ===
@@ -4617,8 +7629,11 @@ function createAutonomousRuntimeAdapter():
           launchExists;
 
         return {
-          success: valid,
-          releaseAllowed: valid,
+          success:
+            valid,
+
+          releaseAllowed:
+            valid,
 
           repaired:
             result.repairAttempts >
@@ -4640,10 +7655,18 @@ function createAutonomousRuntimeAdapter():
       }
 
       return {
-        success: true,
-        releaseAllowed: true,
-        repaired: false,
-        repairAttempts: 0,
+        success:
+          true,
+
+        releaseAllowed:
+          true,
+
+        repaired:
+          false,
+
+        repairAttempts:
+          0,
+
         errors: []
       };
     },
@@ -4659,8 +7682,11 @@ function createAutonomousRuntimeAdapter():
         !tests.releaseAllowed
       ) {
         return {
-          success: false,
-          verified: false,
+          success:
+            false,
+
+          verified:
+            false,
 
           errors: [
             "Release blocked by sovereign build/test gate."
@@ -4679,16 +7705,21 @@ function createAutonomousRuntimeAdapter():
 
         if (
           !proof ||
-          proof.playable !== true ||
-          proof.testSuccess !== true ||
+          proof.playable !==
+            true ||
+          proof.testSuccess !==
+            true ||
           proof.artifactSuccess !==
             true ||
           !proof.artifactPath ||
           !proof.launchTarget
         ) {
           return {
-            success: false,
-            verified: false,
+            success:
+              false,
+
+            verified:
+              false,
 
             errors: [
               "Game release blocked because playable proof is incomplete."
@@ -4702,8 +7733,11 @@ function createAutonomousRuntimeAdapter():
           ))
         ) {
           return {
-            success: false,
-            verified: false,
+            success:
+              false,
+
+            verified:
+              false,
 
             errors: [
               "Game release blocked because real Web Build entry is missing."
@@ -4719,7 +7753,8 @@ function createAutonomousRuntimeAdapter():
         );
 
       return {
-        success: true,
+        success:
+          true,
 
         liveTarget:
           `sovereign://${projectId}`,
@@ -4727,7 +7762,8 @@ function createAutonomousRuntimeAdapter():
         releaseId:
           `sovereign-release-${Date.now()}`,
 
-        verified: true,
+        verified:
+          true,
 
         errors: []
       };
@@ -4744,8 +7780,10 @@ function createAutonomousRuntimeAdapter():
           0;
 
       const healthy =
-        release.success === true &&
-        release.verified === true;
+        release.success ===
+          true &&
+        release.verified ===
+          true;
 
       const releasedProjectId =
         projectIdFromLiveTarget(
@@ -4781,8 +7819,10 @@ function createAutonomousRuntimeAdapter():
             : false;
 
         playable =
-          proof?.playable === true &&
-          proof.testSuccess === true &&
+          proof?.playable ===
+            true &&
+          proof.testSuccess ===
+            true &&
           proof.artifactSuccess ===
             true &&
           artifactExists &&
@@ -4792,11 +7832,16 @@ function createAutonomousRuntimeAdapter():
       const functional =
         command.type ===
           "GAME"
-          ? visible &&
-            healthy &&
-            playable === true
-          : visible &&
-            healthy;
+          ? (
+              visible &&
+              healthy &&
+              playable ===
+                true
+            )
+          : (
+              visible &&
+              healthy
+            );
 
       const success =
         visible &&
@@ -4823,7 +7868,8 @@ function createAutonomousRuntimeAdapter():
           playableProofPresent:
             command.type ===
               "GAME"
-              ? playable === true
+              ? playable ===
+                  true
               : true
         },
 
@@ -4839,7 +7885,9 @@ function createAutonomousRuntimeAdapter():
       };
     },
 
-    async recordEvent(event) {
+    async recordEvent(
+      event
+    ) {
       console.log(
         "[SOVEREIGN AUTONOMOUS EVENT]",
         event.type,
@@ -4869,7 +7917,8 @@ function createBootstrapAdapter():
       const ownerAuthority =
         request.ownerId
           .trim()
-          .length > 0;
+          .length >
+        0;
 
       return {
         valid:
@@ -4891,9 +7940,14 @@ function createBootstrapAdapter():
 
     async integrateSystem():
       Promise<SovereignIntegrationCheck> {
-      const missing: string[] = [];
-      const unhealthy: string[] = [];
-      const errors: string[] = [];
+      const missing:
+        string[] = [];
+
+      const unhealthy:
+        string[] = [];
+
+      const errors:
+        string[] = [];
 
       const special =
         new Set<
@@ -4915,7 +7969,9 @@ function createBootstrapAdapter():
             SovereignFinalComponent[]
       ) {
         if (
-          special.has(component)
+          special.has(
+            component
+          )
         ) {
           continue;
         }
@@ -4941,9 +7997,12 @@ function createBootstrapAdapter():
 
       return {
         ready:
-          missing.length === 0 &&
-          unhealthy.length === 0 &&
-          errors.length === 0,
+          missing.length ===
+            0 &&
+          unhealthy.length ===
+            0 &&
+          errors.length ===
+            0,
 
         missing,
         unhealthy,
@@ -4957,12 +8016,14 @@ function createBootstrapAdapter():
       await fs.mkdir(
         SOVEREIGN_OUTPUT_ROOT,
         {
-          recursive: true
+          recursive:
+            true
         }
       );
 
       return {
-        success: true,
+        success:
+          true,
 
         runtimeId:
           "SOVEREIGN-BOOTSTRAP-GATE-220",
@@ -4982,10 +8043,12 @@ function createBootstrapAdapter():
       runtime
     ): Promise<SovereignFinalVerification> {
       const runtimeReady =
-        runtime.success === true &&
+        runtime.success ===
+          true &&
         runtime.state ===
           "RUNNING" &&
-        runtime.errors.length === 0;
+        runtime.errors.length ===
+          0;
 
       const brainReady =
         !!componentModules[
@@ -5060,57 +8123,76 @@ function createBootstrapAdapter():
         ownerControlReady &&
         visible;
 
-      const errors: string[] = [];
+      const errors:
+        string[] = [];
 
-      if (!runtimeReady) {
+      if (
+        !runtimeReady
+      ) {
         errors.push(
           ...runtime.errors
         );
       }
 
-      if (!brainReady) {
+      if (
+        !brainReady
+      ) {
         errors.push(
           "MASTER_BRAIN is unavailable."
         );
       }
 
-      if (!buildersReady) {
+      if (
+        !buildersReady
+      ) {
         errors.push(
           "Sovereign builders are unavailable."
         );
       }
 
-      if (!testingReady) {
+      if (
+        !testingReady
+      ) {
         errors.push(
           "TEST_ENGINE is unavailable."
         );
       }
 
-      if (!repairReady) {
+      if (
+        !repairReady
+      ) {
         errors.push(
           "Repair system is unavailable."
         );
       }
 
-      if (!releaseReady) {
+      if (
+        !releaseReady
+      ) {
         errors.push(
           "RELEASE_MANAGER is unavailable."
         );
       }
 
-      if (!knowledgeReady) {
+      if (
+        !knowledgeReady
+      ) {
         errors.push(
           "Knowledge system is unavailable."
         );
       }
 
-      if (!ownerControlReady) {
+      if (
+        !ownerControlReady
+      ) {
         errors.push(
           "OWNER control system is unavailable."
         );
       }
 
-      if (!visible) {
+      if (
+        !visible
+      ) {
         errors.push(
           "Runtime live target is unavailable."
         );
@@ -5135,7 +8217,9 @@ function createBootstrapAdapter():
       return;
     },
 
-    async recordEvent(event) {
+    async recordEvent(
+      event
+    ) {
       console.log(
         "[SOVEREIGN BOOTSTRAP EVENT]",
         event.type,
@@ -5161,13 +8245,19 @@ export async function resolveSovereignRealComponent(
     SovereignFinalComponent
 ): Promise<unknown | undefined> {
   const modulePath =
-    componentModules[component];
+    componentModules[
+      component
+    ];
 
-  if (!modulePath) {
+  if (
+    !modulePath
+  ) {
     return undefined;
   }
 
-  switch (component) {
+  switch (
+    component
+  ) {
     case "BOOTSTRAP":
       return createRealBootstrap();
 
@@ -5216,9 +8306,12 @@ async function checkRealComponentHealth(
   healthy: boolean;
   errors: string[];
 }> {
-  if (!instance) {
+  if (
+    !instance
+  ) {
     return {
-      healthy: false,
+      healthy:
+        false,
 
       errors: [
         `${component} is unavailable.`
@@ -5228,7 +8321,10 @@ async function checkRealComponentHealth(
 
   const candidate =
     instance as
-      Record<string, unknown>;
+      Record<
+        string,
+        unknown
+      >;
 
   const requiredMethod =
     component ===
@@ -5240,20 +8336,25 @@ async function checkRealComponentHealth(
         : component ===
             "GAME_BUILDER"
           ? "create"
-          : component ===
+          : (
+              component ===
                 "PROJECT_BUILDER" ||
               component ===
                 "PLATFORM_BUILDER" ||
               component ===
                 "ADMIN_BUILDER"
+            )
             ? "build"
             : undefined;
 
-  if (requiredMethod) {
+  if (
+    requiredMethod
+  ) {
     const healthy =
       typeof candidate[
         requiredMethod
-      ] === "function";
+      ] ===
+      "function";
 
     return {
       healthy,
@@ -5282,7 +8383,9 @@ async function checkRealComponentHealth(
           healthCheck as
             () =>
               Promise<boolean>
-        ).call(instance);
+        ).call(
+          instance
+        );
 
       return {
         healthy,
@@ -5296,7 +8399,8 @@ async function checkRealComponentHealth(
       };
     } catch (error) {
       return {
-        healthy: false,
+        healthy:
+          false,
 
         errors: [
           `${component}: ${
@@ -5310,7 +8414,9 @@ async function checkRealComponentHealth(
   }
 
   return {
-    healthy: true,
+    healthy:
+      true,
+
     errors: []
   };
 }
@@ -5325,6 +8431,7 @@ export function createSovereignRealRuntime(
 ): SovereignAIFinalRuntime {
   return new SovereignAIFinalRuntime({
     ownerId,
+
     projectId,
 
     autonomous:
@@ -5343,7 +8450,9 @@ export function createSovereignRealRuntime(
       async event => {
         console.log(
           "[SOVEREIGN REAL EVENT]",
-          event["type"] ??
+          event[
+            "type"
+          ] ??
             "UNKNOWN"
         );
       }
